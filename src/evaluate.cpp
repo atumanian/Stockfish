@@ -134,6 +134,15 @@ namespace {
       S(118,174), S(119,177), S(123,191), S(128,199) }
   };
 
+  // TrappedRook[rook mobility][king can castle] contains penalties for a rook
+  // trapped by the king, which is bigger if the king can't castle
+  const Score TrappedRook[][2] = {
+    { S(184, 0), S(92, 0) },
+    { S(140, 0), S(70, 0) },
+    { S(96, 0), S(48, 0) },
+    { S(52, 0), S(26, 0) },
+  };
+
   // Outpost[knight/bishop][supported by pawn] contains bonuses for knights and
   // bishops outposts, bigger if outpost piece is supported by a pawn.
   const Score Outpost[][2] = {
@@ -188,7 +197,6 @@ namespace {
   const Score MinorBehindPawn     = S(16,  0);
   const Score BishopPawns         = S( 8, 12);
   const Score RookOnPawn          = S( 8, 24);
-  const Score TrappedRook         = S(92,  0);
   const Score CloseEnemies        = S( 7,  0);
   const Score SafeCheck           = S(20, 20);
   const Score OtherCheck          = S(10, 10);
@@ -348,7 +356,7 @@ namespace {
                 if (relative_rank(Us, ksq) == RANK_1 && relative_rank(Us, s) <= RANK_2
                     && file_of(s) != file_of(ksq) && (file_of(ksq) < FILE_E) == (file_of(s) < file_of(ksq))
                     && !ei.pi->semiopen_side(Us, file_of(ksq), file_of(s) < file_of(ksq)))
-                    score -= (TrappedRook - make_score(mob * 22, 0)) * (1 + !pos.can_castle(Us));
+                    score -= TrappedRook[mob][pos.can_castle(Us)];
             }
         }
 
