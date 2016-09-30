@@ -134,7 +134,14 @@ namespace {
       S(118,174), S(119,177), S(123,191), S(128,199) }
   };
 
-  TUNE(SetRange(-150, 150), MobilityBonus[ROOK][0], MobilityBonus[ROOK][1], MobilityBonus[ROOK][2], MobilityBonus[ROOK][3]);
+  int TrappedRook[][2] = {
+    { 184, 92},
+    { 140, 70},
+    { 96, 48},
+    { 52, 26}
+  };
+
+  TUNE(SetRange(-150, 150), MobilityBonus[ROOK][0], MobilityBonus[ROOK][1], MobilityBonus[ROOK][2],      MobilityBonus[ROOK][3], SetRange(-200, 400), TrappedRook);
 
   // Outpost[knight/bishop][supported by pawn] contains bonuses for knights and
   // bishops outposts, bigger if outpost piece is supported by a pawn.
@@ -189,7 +196,6 @@ namespace {
   const Score MinorBehindPawn     = S(16,  0);
   const Score BishopPawns         = S( 8, 12);
   const Score RookOnPawn          = S( 8, 24);
-  const Score TrappedRook         = S(92,  0);
   const Score CloseEnemies        = S( 7,  0);
   const Score SafeCheck           = S(20, 20);
   const Score OtherCheck          = S(10, 10);
@@ -346,10 +352,10 @@ namespace {
             {
                 Square ksq = pos.square<KING>(Us);
 
-                if (   ((file_of(ksq) < FILE_E) == (file_of(s) < file_of(ksq)))
-                    && (rank_of(ksq) == rank_of(s) || relative_rank(Us, ksq) == RANK_1)
+                if (relative_rank(Us, ksq) == RANK_1 && relative_rank(Us, s) <= RANK_2
+                    && file_of(s) != file_of(ksq) && (file_of(ksq) < FILE_E) == (file_of(s) < file_of(ksq))
                     && !ei.pi->semiopen_side(Us, file_of(ksq), file_of(s) < file_of(ksq)))
-                    score -= (TrappedRook - make_score(mob * 22, 0)) * (1 + !pos.can_castle(Us));
+                    score -= make_score(TrappedRook[mob][bool(pos.can_castle(Us))], 0);
             }
         }
 
