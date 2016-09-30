@@ -140,7 +140,7 @@ namespace {
     { S(184, 0), S(92, 0) },
     { S(140, 0), S(70, 0) },
     { S(96, 0), S(48, 0) },
-    { S(52, 0), S(26, 0) },
+    { S(52, 0), S(26, 0) }
   };
 
   // Outpost[knight/bishop][supported by pawn] contains bonuses for knights and
@@ -356,7 +356,7 @@ namespace {
                 if (relative_rank(Us, ksq) == RANK_1 && relative_rank(Us, s) <= RANK_2
                     && file_of(s) != file_of(ksq) && (file_of(ksq) < FILE_E) == (file_of(s) < file_of(ksq))
                     && !ei.pi->semiopen_side(Us, file_of(ksq), file_of(s) < file_of(ksq)))
-                    score -= TrappedRook[mob][pos.can_castle(Us)];
+                    score -= TrappedRook[mob][bool(pos.can_castle(Us))];
             }
         }
 
