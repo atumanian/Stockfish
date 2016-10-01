@@ -124,7 +124,7 @@ namespace {
     { S(-48,-58), S(-21,-19), S( 16, -2), S( 26, 12), S( 37, 22), S( 51, 42), // Bishops
       S( 54, 54), S( 63, 58), S( 65, 63), S( 71, 70), S( 79, 74), S( 81, 86),
       S( 92, 90), S( 97, 94) },
-    { S(-56,-78), S(-25,-18), S(-11, 26), S( -5, 55), S( -4, 70), S( -1, 81), // Rooks
+    { S(-58,-70), S(-35,-15), S(-13, 34), S( -5, 42), S( -4, 70), S( -1, 81), // Rooks
       S(  8,109), S( 14,120), S( 21,128), S( 23,143), S( 31,154), S( 32,160),
       S( 43,165), S( 49,168), S( 59,169) },
     { S(-40,-35), S(-25,-12), S(  2,  7), S(  4, 19), S( 14, 37), S( 24, 55), // Queens
@@ -135,12 +135,12 @@ namespace {
   };
 
   // TrappedRook[rook mobility][king can castle] contains penalties for a rook
-  // trapped by the king, which is bigger if the king can't castle
+  // trapped by the king, which is bigger if the king can't castle.
   const Score TrappedRook[][2] = {
-    { S(184, 0), S(92, 0) },
-    { S(140, 0), S(70, 0) },
-    { S(96, 0), S(48, 0) },
-    { S(52, 0), S(26, 0) }
+    { S(192,  0), S( 94,  0) },
+    { S(157,  0), S( 55,  0) },
+    { S( 83,  0), S( 32,  0) },
+    { S( 69,  0), S( 29,  0) }
   };
 
   // Outpost[knight/bishop][supported by pawn] contains bonuses for knights and
