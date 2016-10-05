@@ -165,14 +165,11 @@ void MovePicker::score<EVASIONS>() {
   const HistoryStats& history = pos.this_thread()->history;
   const FromToStats& fromTo = pos.this_thread()->fromTo;
   Color c = pos.side_to_move();
-  Value see;
 
   for (auto& m : *this)
       if (pos.capture(m))
           m.value =  PieceValue[MG][pos.piece_on(to_sq(m))]
                    - Value(type_of(pos.moved_piece(m))) + HistoryStats::Max;
-      else if ((see = pos.see_sign(m)) < VALUE_ZERO)
-          m.value = see - HistoryStats::Max; // At the bottom
       else
           m.value = history[pos.moved_piece(m)][to_sq(m)] + fromTo.get(c, m);
 }
