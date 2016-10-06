@@ -165,7 +165,6 @@ void MovePicker::score<EVASIONS>() {
   Color c = pos.side_to_move();
 
   for (auto& m : *this)
-
       if (pos.capture(m))
           m.value =  PieceValue[MG][pos.piece_on(to_sq(m))]
                    - Value(type_of(pos.moved_piece(m))) + HistoryStats::Max;
