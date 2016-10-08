@@ -58,14 +58,16 @@ namespace {
 
       ExtMove *ptr = begin;
       ExtMove *iter = begin;
+      ExtMove nextValue, beginValue = *begin, max = beginValue;
 
       while (++iter < end)
-          if (*ptr < *iter)
+          if (max < (nextValue = *iter)) {
               ptr = iter;
+              max = nextValue;
+          }
 
-      ExtMove res = *ptr;
-      *ptr = *begin;
-      return res;
+      *ptr = beginValue;
+      return max;
   }
 
 } // namespace
