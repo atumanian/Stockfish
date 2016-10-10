@@ -399,8 +399,7 @@ namespace {
     Bitboard undefended, b, b1, b2, safe, other;
     int kingDanger;
     const Square ksq = pos.square<KING>(Us);
-
-    bool evaluateKingSafety = ei.me->game_phase() > KingSafetyEvalThreshold;
+    const bool evaluateKingSafety = ei.me->game_phase() > KingSafetyEvalThreshold;
 
     // King shelter and enemy pawns storm
     Score score = evaluateKingSafety ? make_score(ei.pi->king_safety<Us>(pos, ksq), 0) : SCORE_ZERO;
