@@ -217,6 +217,7 @@ namespace {
   const int BishopCheck       = 538;
   const int KnightCheck       = 874;
 
+  const Phase KingSafetyEvalThreshold = Phase(20);
 
   // eval_init() initializes king and attack bitboards for a given color
   // adding pawn attacks. To be done at the beginning of the evaluation.
@@ -399,8 +400,10 @@ namespace {
     int kingDanger;
     const Square ksq = pos.square<KING>(Us);
 
+    bool evaluateKingSafety = ei.me->game_phase() > KingSafetyEvalThreshold;
+
     // King shelter and enemy pawns storm
-    Score score = ei.me->game_phase() == PHASE_ENDGAME ? SCORE_ZERO : make_score(ei.pi->king_safety<Us>(pos, ksq), 0);
+    Score score = evaluateKingSafety ? make_score(ei.pi->king_safety<Us>(pos, ksq), 0) : SCORE_ZERO;
 
     // Main king safety evaluation
     if (ei.kingAttackersCount[Them])
@@ -419,7 +422,7 @@ namespace {
         // number and types of the enemy's attacking pieces, the number of
         // attacked and undefended squares around our king and the quality of
         // the pawn shelter (current 'score' value).
-        if (ei.me->game_phase() != PHASE_ENDGAME)
+        if (evaluateKingSafety)
             kingDanger = std::min(807, ei.kingAttackersCount[Them] * ei.kingAttackersWeight[Them])
                     + 101 * ei.kingAdjacentZoneAttacksCount[Them]
                     + 235 * popcount(undefended)
@@ -431,8 +434,9 @@ namespace {
         // undefended squares around the king reachable by the enemy queen...
         b = undefended & ei.attackedBy[Them][QUEEN] & ~pos.pieces(Them);
 
-        // ...and keep squares supported by another enemy piece
-        kingDanger += QueenContactCheck * popcount(b & ei.attackedBy2[Them]);
+        if (evaluateKingSafety)
+            // ...and keep squares supported by another enemy piece
+            kingDanger += QueenContactCheck * popcount(b & ei.attackedBy2[Them]);
 
         // Analyse the safe enemy's checks which are possible on next move...
         safe  = ~(ei.attackedBy[Us][ALL_PIECES] | pos.pieces(Them));
@@ -478,7 +482,7 @@ namespace {
             score -= OtherCheck;
 
         // Compute the king danger score and subtract it from the evaluation
-        if (ei.me->game_phase() != PHASE_ENDGAME && kingDanger > 0)
+        if (evaluateKingSafety && kingDanger > 0)
             score -= make_score(std::min(kingDanger * kingDanger / 4096,  2 * int(BishopValueMg)), 0);
     }
 
