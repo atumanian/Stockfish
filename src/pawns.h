@@ -53,13 +53,13 @@ struct Entry {
   }
 
   template<Color Us>
-  Score king_safety(const Position& pos, Square ksq) {
-    return  kingSquares[Us] == ksq && castlingRights[Us] == pos.can_castle(Us)
+  Value king_safety(const Position& pos, Square ksq) {
+    return  kingSquares[Us] == ksq && castlingRights[Us] == pos.can_castle(Us) && kingSafety[Us] != VALUE_NONE
           ? kingSafety[Us] : (kingSafety[Us] = do_king_safety<Us>(pos, ksq));
   }
 
   template<Color Us>
-  Score do_king_safety(const Position& pos, Square ksq);
+  Value do_king_safety(const Position& pos, Square ksq);
 
   template<Color Us>
   Value shelter_storm(const Position& pos, Square ksq);
@@ -70,7 +70,7 @@ struct Entry {
   Bitboard pawnAttacks[COLOR_NB];
   Bitboard pawnAttacksSpan[COLOR_NB];
   Square kingSquares[COLOR_NB];
-  Score kingSafety[COLOR_NB];
+  Value kingSafety[COLOR_NB];
   int castlingRights[COLOR_NB];
   int semiopenFiles[COLOR_NB];
   int pawnsOnSquares[COLOR_NB][COLOR_NB]; // [color][light/dark squares]

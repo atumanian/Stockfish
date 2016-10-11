@@ -217,6 +217,7 @@ namespace {
   const int BishopCheck       = 538;
   const int KnightCheck       = 874;
 
+  const Phase KingSafetyEvalThreshold = Phase(20);
 
   // eval_init() initializes king and attack bitboards for a given color
   // adding pawn attacks. To be done at the beginning of the evaluation.
@@ -307,7 +308,7 @@ namespace {
             }
 
             // Bonus when behind a pawn
-            if (    relative_rank(Us, s) < RANK_5
+            if (ei.me->game_phase() != PHASE_ENDGAME && relative_rank(Us, s) < RANK_5
                 && (pos.pieces(PAWN) & (s + pawn_push(Us))))
                 score += MinorBehindPawn;
 
@@ -341,7 +342,7 @@ namespace {
                 score += RookOnFile[!!ei.pi->semiopen_file(Them, file_of(s))];
 
             // Penalize when trapped by the king, even more if the king cannot castle
-            else if (mob <= 3)
+            else if (mob <= 3 && ei.me->game_phase() != PHASE_ENDGAME)
             {
                 Square ksq = pos.square<KING>(Us);
 
@@ -352,7 +353,7 @@ namespace {
             }
         }
 
-        if (Pt == QUEEN)
+        if (Pt == QUEEN && ei.me->game_phase() != PHASE_ENDGAME)
         {
             // Penalty if any relative pin or discovered attack against the queen
             Bitboard pinners;
@@ -399,8 +400,10 @@ namespace {
     int kingDanger;
     const Square ksq = pos.square<KING>(Us);
 
+    bool evaluateKingSafety = ei.me->game_phase() > KingSafetyEvalThreshold;
+
     // King shelter and enemy pawns storm
-    Score score = ei.pi->king_safety<Us>(pos, ksq);
+    Score score = evaluateKingSafety ? make_score(ei.pi->king_safety<Us>(pos, ksq), 0) : SCORE_ZERO;
 
     // Main king safety evaluation
     if (ei.kingAttackersCount[Them])
@@ -419,7 +422,8 @@ namespace {
         // number and types of the enemy's attacking pieces, the number of
         // attacked and undefended squares around our king and the quality of
         // the pawn shelter (current 'score' value).
-        kingDanger =  std::min(807, ei.kingAttackersCount[Them] * ei.kingAttackersWeight[Them])
+        if (evaluateKingSafety)
+            kingDanger = std::min(807, ei.kingAttackersCount[Them] * ei.kingAttackersWeight[Them])
                     + 101 * ei.kingAdjacentZoneAttacksCount[Them]
                     + 235 * popcount(undefended)
                     + 134 * (popcount(b) + !!ei.pinnedPieces[Us])
@@ -430,8 +434,9 @@ namespace {
         // undefended squares around the king reachable by the enemy queen...
         b = undefended & ei.attackedBy[Them][QUEEN] & ~pos.pieces(Them);
 
-        // ...and keep squares supported by another enemy piece
-        kingDanger += QueenContactCheck * popcount(b & ei.attackedBy2[Them]);
+        if (evaluateKingSafety)
+            // ...and keep squares supported by another enemy piece
+            kingDanger += QueenContactCheck * popcount(b & ei.attackedBy2[Them]);
 
         // Analyse the safe enemy's checks which are possible on next move...
         safe  = ~(ei.attackedBy[Us][ALL_PIECES] | pos.pieces(Them));
@@ -477,27 +482,40 @@ namespace {
             score -= OtherCheck;
 
         // Compute the king danger score and subtract it from the evaluation
-        if (kingDanger > 0)
+        if (evaluateKingSafety && kingDanger > 0)
             score -= make_score(std::min(kingDanger * kingDanger / 4096,  2 * int(BishopValueMg)), 0);
     }
 
-    // King tropism: firstly, find squares that opponent attacks in our king flank
-    b = ei.attackedBy[Them][ALL_PIECES] & KingFlank[Us][file_of(ksq)];
+    if (ei.me->game_phase() != PHASE_ENDGAME) {
+        // King tropism: firstly, find squares that opponent attacks in our king flank
+        b = ei.attackedBy[Them][ALL_PIECES] & KingFlank[Us][file_of(ksq)];
 
-    assert(((Us == WHITE ? b << 4 : b >> 4) & b) == 0);
-    assert(popcount(Us == WHITE ? b << 4 : b >> 4) == popcount(b));
+        assert(((Us == WHITE ? b << 4 : b >> 4) & b) == 0);
+        assert(popcount(Us == WHITE ? b << 4 : b >> 4) == popcount(b));
 
-    // Secondly, add the squares which are attacked twice in that flank and
-    // which are not defended by our pawns.
-    b =  (Us == WHITE ? b << 4 : b >> 4)
-       | (b & ei.attackedBy2[Them] & ~ei.attackedBy[Us][PAWN]);
+        // Secondly, add the squares which are attacked twice in that flank and
+        // which are not defended by our pawns.
+        b =  (Us == WHITE ? b << 4 : b >> 4)
+           | (b & ei.attackedBy2[Them] & ~ei.attackedBy[Us][PAWN]);
 
-    score -= CloseEnemies * popcount(b);
+        score -= CloseEnemies * popcount(b);
+    }
+
+    if (ei.me->game_phase() != PHASE_MIDGAME) {
+        Bitboard pawns = pos.pieces(Us, PAWN);
+        int minKingPawnDistance = 0;
+
+        if (pawns)
+            while (!(DistanceRingBB[ksq][minKingPawnDistance++] & pawns)) {}
+
+        score += make_score(0, -16 * minKingPawnDistance);
+    }
 
     if (DoTrace)
         Trace::add(KING, Us, score);
 
     return score;
+
   }
 
 
@@ -520,7 +538,7 @@ namespace {
     Score score = SCORE_ZERO;
 
     // Small bonus if the opponent has loose pawns or pieces
-    if (   (pos.pieces(Them) ^ pos.pieces(Them, QUEEN, KING))
+    if (ei.me->game_phase() != PHASE_MIDGAME && (pos.pieces(Them) ^ pos.pieces(Them, QUEEN, KING))
         & ~(ei.attackedBy[Us][ALL_PIECES] | ei.attackedBy[Them][ALL_PIECES]))
         score += LooseEnemies;
 
@@ -833,7 +851,7 @@ Value Eval::evaluate(const Position& pos) {
           - evaluate_passed_pawns<BLACK, DoTrace>(pos, ei);
 
   // If both sides have only pawns, score for potential unstoppable pawns
-  if (!pos.non_pawn_material(WHITE) && !pos.non_pawn_material(BLACK))
+  if (ei.me->game_phase() != PHASE_MIDGAME && !pos.non_pawn_material(WHITE) && !pos.non_pawn_material(BLACK))
   {
       Bitboard b;
       if ((b = ei.pi->passed_pawns(WHITE)) != 0)
