@@ -217,7 +217,7 @@ namespace {
   const int BishopCheck       = 538;
   const int KnightCheck       = 874;
 
-  const Phase KingSafetyEvalThreshold = Phase(20);
+  const Phase KingSafetyEvalThreshold = Phase(11);
 
   // eval_init() initializes king and attack bitboards for a given color
   // adding pawn attacks. To be done at the beginning of the evaluation.
