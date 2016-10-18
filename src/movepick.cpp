@@ -54,20 +54,16 @@ namespace {
   // are few moves, e.g., the possible captures.
   Move pick_best(ExtMove* begin, ExtMove* end)
   {
-      assert(begin < end);
+      ExtMove* ptrBest = begin;
+      ExtMove* iter = begin;
 
-      ExtMove *ptr = begin;
-      ExtMove *iter = begin;
-      ExtMove nextValue, beginValue = *begin, max = beginValue;
+      while(++iter != end)
+          if(*ptrBest < *iter)
+              ptrBest = iter;
 
-      while (++iter < end)
-          if (max < (nextValue = *iter)) {
-              ptr = iter;
-              max = nextValue;
-          }
-
-      *ptr = beginValue;
-      return max;
+      Move best = *ptrBest;
+      *ptrBest = *begin;
+      return best;
   }
 
 } // namespace
