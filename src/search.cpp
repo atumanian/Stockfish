@@ -798,7 +798,7 @@ namespace {
         assert((ss-1)->currentMove != MOVE_NONE);
         assert((ss-1)->currentMove != MOVE_NULL);
 
-        MovePicker mp(pos, ttMove, rbeta + 1 - ss->staticEval);
+        MovePicker mp(pos, ttMove, rbeta - ss->staticEval);
 
         while ((move = mp.next_move()) != MOVE_NONE)
             if (pos.legal(move))
