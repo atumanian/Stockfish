@@ -69,12 +69,15 @@ namespace {
         return;
 
     States = StateListPtr(new std::deque<StateInfo>(1));
-    pos.set(fen, Options["UCI_Chess960"], &States->back(), Threads.main());
+    std:unordered_set<Key> repeatedOnce;
+
+    pos.set(fen, Options["UCI_Chess960"], States->back(), Threads.main());
 
     // Parse move list (if any)
     while (is >> token && (m = UCI::to_move(pos, token)) != MOVE_NONE)
     {
         States->push_back(StateInfo());
+        repeatedOnce.insert(pos.key());
         pos.do_move(m, States->back(), pos.gives_check(m));
     }
   }
@@ -132,7 +135,7 @@ namespace {
         else if (token == "infinite")  limits.infinite = 1;
         else if (token == "ponder")    limits.ponder = 1;
 
-    Threads.start_thinking(pos, States, limits);
+    Threads.start_thinking(pos, RepeatedOnce, limits);
   }
 
 } // namespace
