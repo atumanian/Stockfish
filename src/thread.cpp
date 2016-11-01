@@ -182,7 +182,7 @@ uint64_t ThreadPool::tb_hits() const {
 /// ThreadPool::start_thinking() wakes up the main thread sleeping in idle_loop()
 /// and starts a new search, then returns immediately.
 
-void ThreadPool::start_thinking(Position& pos, std::unordered_set<Key> repeatedOnce,
+void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
                                 const Search::LimitsType& limits) {
 
   main()->wait_for_search_finished();
@@ -201,12 +201,12 @@ void ThreadPool::start_thinking(Position& pos, std::unordered_set<Key> repeatedO
 
   // After ownership transfer 'states' becomes empty, so if we stop the search
   // and call 'go' again without setting a new position states.get() == NULL.
-  /*assert(states.get() || setupStates.get());
+  assert(states.get() || setupStates.get());
 
   if (states.get())
       setupStates = std::move(states); // Ownership transfer, states is now empty
 
-  StateInfo tmp = setupStates->back();*/
+  StateInfo tmp = setupStates->back();
 
   for (Thread* th : Threads)
   {
@@ -214,11 +214,10 @@ void ThreadPool::start_thinking(Position& pos, std::unordered_set<Key> repeatedO
       th->tbHits = 0;
       th->rootDepth = DEPTH_ZERO;
       th->rootMoves = rootMoves;
-      th->rootPos.set(pos.fen(), pos.is_chess960(), rootState, th);
+      th->rootPos.set(pos.fen(), pos.is_chess960(), &setupStates->back(), th);
   }
 
-  ThreadPool::repeatedOnce = repeatedOnce;
-  //setupStates->back() = tmp; // Restore st->previous, cleared by Position::set()
+  setupStates->back() = tmp; // Restore st->previous, cleared by Position::set()
 
   main()->start_searching();
 }

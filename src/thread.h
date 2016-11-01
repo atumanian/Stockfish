@@ -103,8 +103,7 @@ struct ThreadPool : public std::vector<Thread*> {
   uint64_t tb_hits() const;
 
 private:
-  StateInfo rootState;
-  std::unordered_set<Key> repeatedOnce;
+  StateListPtr setupStates;
 };
 
 extern ThreadPool Threads;

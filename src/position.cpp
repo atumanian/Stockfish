@@ -1038,7 +1038,7 @@ bool Position::see_ge(Move m, Value v) const {
 /// Position::is_draw() tests whether the position is drawn by 50-move rule
 /// or by repetition. It does not detect stalemates.
 
-bool Position::is_draw(int ply) const {
+bool Position::is_draw() const {
 
   if (st->rule50 > 99 && (!checkers() || MoveList<LEGAL>(*this).size()))
       return true;

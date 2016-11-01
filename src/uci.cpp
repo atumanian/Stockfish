@@ -21,7 +21,6 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <unordered_set>
 
 #include "evaluate.h"
 #include "movegen.h"
@@ -44,7 +43,7 @@ namespace {
   // start position to the position just before the search starts). Needed by
   // 'draw by repetition' detection.
   StateListPtr States(new std::deque<StateInfo>(1));
-  std::unordered_set<Key> repeatedOnce;
+
 
   // position() is called when engine receives the "position" UCI command.
   // The function sets up the position described in the given FEN string ("fen")
@@ -70,7 +69,7 @@ namespace {
         return;
 
     States = StateListPtr(new std::deque<StateInfo>(1));
-    repeatedOnce.erase();
+    std:unordered_set<Key> repeatedOnce;
 
     pos.set(fen, Options["UCI_Chess960"], States->back(), Threads.main());
 
@@ -136,7 +135,7 @@ namespace {
         else if (token == "infinite")  limits.infinite = 1;
         else if (token == "ponder")    limits.ponder = 1;
 
-    Threads.start_thinking(pos, repeatedOnce, limits);
+    Threads.start_thinking(pos, RepeatedOnce, limits);
   }
 
 } // namespace
