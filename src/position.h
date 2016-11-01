@@ -42,7 +42,8 @@ struct StateInfo {
   Value  nonPawnMaterial[COLOR_NB];
   int    castlingRights;
   int    rule50;
-  int    pliesFromNull;
+  int    pliesForRepetition;
+  //int    pliesFromNull;
   Score  psq;
   Square epSquare;
 
@@ -57,7 +58,8 @@ struct StateInfo {
 };
 
 // In a std::deque references to elements are unaffected upon resizing
-typedef std::unique_ptr<std::deque<StateInfo>> StateListPtr;
+typedef std::deque<StateInfo> StateList[2];
+typedef std::unique_ptr<StateList> StateListPtr;
 
 
 /// Position class stores information regarding the board representation as

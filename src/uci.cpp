@@ -42,7 +42,8 @@ namespace {
   // A list to keep track of the position states along the setup moves (from the
   // start position to the position just before the search starts). Needed by
   // 'draw by repetition' detection.
-  StateListPtr States(new std::deque<StateInfo>(1));
+  std::deque<StateInfo> States(1);
+  StateListPtr States2(reinterpret_cast<StateList*>(new StateList));
 
 
   // position() is called when engine receives the "position" UCI command.
@@ -67,15 +68,40 @@ namespace {
             fen += token + " ";
     else
         return;
+    States = std::deque<StateInfo>(1);
+    States2 = StateListPtr(reinterpret_cast<StateList*>(new StateList));
 
-    States = StateListPtr(new std::deque<StateInfo>(1));
-    pos.set(fen, Options["UCI_Chess960"], &States->back(), Threads.main());
+    auto zeroMove = States.cbegin();
+
+    pos.set(fen, Options["UCI_Chess960"], &States.back(), Threads.main());
 
     // Parse move list (if any)
     while (is >> token && (m = UCI::to_move(pos, token)) != MOVE_NONE)
     {
-        States->push_back(StateInfo());
-        pos.do_move(m, States->back(), pos.gives_check(m));
+        States.push_back(StateInfo());
+        pos.do_move(m, States.back(), pos.gives_check(m));
+        if (States.back().pliesForRepetition == 0)
+            zeroMove = States.cend() - 1;
+    }
+    bool relativeStm = (States.cend() - zeroMove) % 2;
+    for (auto it = zeroMove; it != States.cend() - 1; ++it, relativeStm = !relativeStm) {
+        (*States2)[relativeStm].push_front(StateInfo());
+        (*States2)[relativeStm].front().key = it->key;
+    }
+    StateInfo si;
+    si.key = 0;
+    unsigned p = (*States2)[false].size(), q = (*States2)[true].size();
+    if (p < q)
+        (*States2)[false].insert((*States2)[false].cend(), q - p, si);
+    else if (p > q + 1)
+        (*States2)[true].insert((*States2)[true].cend(), p - q - 1, si);
+    auto it0 = (*States2)[false].begin(), it1 = (*States2)[true].begin();
+    while (it0 != (*States2)[false].end()) {
+      (it0++)->previous = &*it1;
+      if (it0 == (*States2)[false].end())
+        break;
+      (it1++)->previous = &*it0;
+
     }
   }
 
@@ -132,7 +158,7 @@ namespace {
         else if (token == "infinite")  limits.infinite = 1;
         else if (token == "ponder")    limits.ponder = 1;
 
-    Threads.start_thinking(pos, States, limits);
+    Threads.start_thinking(pos, States2, limits);
   }
 
 } // namespace
@@ -149,7 +175,7 @@ void UCI::loop(int argc, char* argv[]) {
   Position pos;
   string token, cmd;
 
-  pos.set(StartFEN, false, &States->back(), Threads.main());
+  pos.set(StartFEN, false, &States.back(), Threads.main());
 
   for (int i = 1; i < argc; ++i)
       cmd += std::string(argv[i]) + " ";

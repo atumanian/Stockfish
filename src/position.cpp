@@ -661,7 +661,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   // in case of a capture or a pawn move.
   ++gamePly;
   ++st->rule50;
-  ++st->pliesFromNull;
+  ++st->pliesForRepetition;
 
   Color us = sideToMove;
   Color them = ~us;
@@ -726,6 +726,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
       // Reset rule 50 counter
       st->rule50 = 0;
+      st->pliesForRepetition = 0;
   }
 
   // Update hash key
@@ -790,7 +791,11 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
       // Reset rule 50 draw counter
       st->rule50 = 0;
+      st->pliesForRepetition = 0;
   }
+
+  if (st->castlingRights != st->previous->castlingRights)
+    st->pliesForRepetition = 0;
 
   // Update incremental scores
   st->psq += PSQT::psq[pc][to] - PSQT::psq[pc][from];
@@ -918,7 +923,7 @@ void Position::do_null_move(StateInfo& newSt) {
   prefetch(TT.first_entry(st->key));
 
   ++st->rule50;
-  st->pliesFromNull = 0;
+  st->pliesForRepetition = 0;
 
   sideToMove = ~sideToMove;
 
@@ -1044,7 +1049,7 @@ bool Position::is_draw() const {
       return true;
 
   StateInfo* stp = st;
-  for (int i = 2, e = std::min(st->rule50, st->pliesFromNull); i <= e; i += 2)
+  for (int i = 2, e = st->pliesForRepetition; i <= e; i += 2)
   {
       stp = stp->previous->previous;
 

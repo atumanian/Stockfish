@@ -654,7 +654,7 @@ int Tablebases::probe_dtz(Position& pos, int *success)
 static int has_repeated(StateInfo *st)
 {
   while (1) {
-    int i = 4, e = std::min(st->rule50, st->pliesFromNull);
+    int i = 4, e = st->pliesForRepetition;
     if (e < i)
       return 0;
     StateInfo *stp = st->previous->previous;

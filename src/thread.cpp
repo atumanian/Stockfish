@@ -203,10 +203,12 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
   // and call 'go' again without setting a new position states.get() == NULL.
   assert(states.get() || setupStates.get());
 
-  if (states.get())
+  if (states.get()) {
       setupStates = std::move(states); // Ownership transfer, states is now empty
 
-  StateInfo tmp = setupStates->back();
+  //StateInfo tmp = setupStates->back();
+      (*setupStates)[true].push_front(StateInfo());
+  }
 
   for (Thread* th : Threads)
   {
@@ -214,10 +216,12 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
       th->tbHits = 0;
       th->rootDepth = DEPTH_ZERO;
       th->rootMoves = rootMoves;
-      th->rootPos.set(pos.fen(), pos.is_chess960(), &setupStates->back(), th);
+      th->rootPos.set(pos.fen(), pos.is_chess960(), &(*setupStates)[true].front(), th);
   }
 
-  setupStates->back() = tmp; // Restore st->previous, cleared by Position::set()
+  //setupStates->back() = tmp; // Restore st->previous, cleared by Position::set()
+  (*setupStates)[true].front().previous = (*setupStates)[false].empty() ? nullptr : &(*setupStates)[false].front();
+  (*setupStates)[true].front().pliesForRepetition = (*setupStates)[false].size() + (*setupStates)[true].size() - 1;
 
   main()->start_searching();
 }
