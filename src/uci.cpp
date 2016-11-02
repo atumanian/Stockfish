@@ -21,6 +21,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 
 #include "evaluate.h"
 #include "movegen.h"
@@ -68,9 +69,9 @@ namespace {
             fen += token + " ";
     else
         return;
+
     States = std::deque<StateInfo>(1);
     States2 = StateListPtr(reinterpret_cast<StateList*>(new StateList));
-
     auto zeroMove = States.cbegin();
 
     pos.set(fen, Options["UCI_Chess960"], &States.back(), Threads.main());
@@ -84,9 +85,13 @@ namespace {
             zeroMove = States.cend() - 1;
     }
     bool relativeStm = (States.cend() - zeroMove) % 2;
+    std::unordered_set<Key> repeatedOnce[2];
     for (auto it = zeroMove; it != States.cend() - 1; ++it, relativeStm = !relativeStm) {
-        (*States2)[relativeStm].push_front(StateInfo());
-        (*States2)[relativeStm].front().key = it->key;
+        if (repeatedOnce[relativeStm].count(it->key)) {
+            (*States2)[relativeStm].push_front(StateInfo());
+            (*States2)[relativeStm].front().key = it->key;
+        }
+        else repeatedOnce[relativeStm].insert(it->key);
     }
     StateInfo si;
     si.key = 0;
