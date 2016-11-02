@@ -72,7 +72,7 @@ namespace {
 
     States = std::deque<StateInfo>(1);
     States2 = StateListPtr(reinterpret_cast<StateList*>(new StateList));
-    auto zeroMove = States.cbegin();
+    unsigned zeroMove = 0;
 
     pos.set(fen, Options["UCI_Chess960"], &States.back(), Threads.main());
 
@@ -82,11 +82,12 @@ namespace {
         States.push_back(StateInfo());
         pos.do_move(m, States.back(), pos.gives_check(m));
         if (States.back().pliesForRepetition == 0)
-            zeroMove = States.cend() - 1;
+            zeroMove = States.size() - 1;
     }
-    bool relativeStm = (States.cend() - zeroMove) % 2;
+    bool relativeStm = (States.size() - zeroMove) % 2;
+    //std::cout << States.end() - zeroMove << " " << States.end() - States.begin();
     std::unordered_set<Key> repeatedOnce[2];
-    for (auto it = zeroMove; it != States.cend() - 1; ++it, relativeStm = !relativeStm) {
+    for (std::deque<StateInfo>::iterator it = States.begin() + zeroMove; it != States.end() - 1; ++it, relativeStm = !relativeStm) {
         if (repeatedOnce[relativeStm].count(it->key)) {
             (*States2)[relativeStm].push_front(StateInfo());
             (*States2)[relativeStm].front().key = it->key;
