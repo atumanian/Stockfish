@@ -55,6 +55,9 @@ struct StateInfo {
   Bitboard   blockersForKing[COLOR_NB];
   Bitboard   pinnersForKing[COLOR_NB];
   Bitboard   checkSquares[PIECE_TYPE_NB];
+
+  StateInfo() = default;
+  explicit StateInfo(Key k) : key(k) {};
 };
 
 // In a std::deque references to elements are unaffected upon resizing

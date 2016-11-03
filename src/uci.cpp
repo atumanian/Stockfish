@@ -72,7 +72,7 @@ namespace {
 
     States = std::deque<StateInfo>(1);
     States2 = StateListPtr(reinterpret_cast<StateList*>(new StateList));
-    unsigned zeroMove = 0;
+    unsigned breakingMove = 0;
 
     pos.set(fen, Options["UCI_Chess960"], &States.back(), Threads.main());
 
@@ -82,29 +82,23 @@ namespace {
         States.push_back(StateInfo());
         pos.do_move(m, States.back(), pos.gives_check(m));
         if (States.back().pliesForRepetition == 0)
-            zeroMove = States.size() - 1;
+            breakingMove = States.size() - 1;
     }
-    bool relativeStm = (States.size() - zeroMove) % 2;
-    //std::cout << States.end() - zeroMove << " " << States.end() - States.begin();
+    bool relativeStm = (States.size() - breakingMove) % 2;
     std::unordered_set<Key> repeatedOnce[2];
-    for (std::deque<StateInfo>::iterator it = States.begin() + zeroMove; it != States.end() - 1; ++it, relativeStm = !relativeStm) {
-        if (repeatedOnce[relativeStm].count(it->key)) {
-            (*States2)[relativeStm].push_front(StateInfo());
-            (*States2)[relativeStm].front().key = it->key;
-        }
+    for (auto it = States.cbegin() + breakingMove; it != States.cend() - 1; ++it, relativeStm = !relativeStm)
+        if (repeatedOnce[relativeStm].count(it->key))
+            (*States2)[relativeStm].push_back(StateInfo(it->key));
         else repeatedOnce[relativeStm].insert(it->key);
-    }
-    StateInfo si;
-    si.key = 0;
     unsigned p = (*States2)[false].size(), q = (*States2)[true].size();
     if (p < q)
-        (*States2)[false].insert((*States2)[false].cend(), q - p, si);
+        (*States2)[false].insert((*States2)[false].cend(), q - p, StateInfo(0));
     else if (p > q + 1)
-        (*States2)[true].insert((*States2)[true].cend(), p - q - 1, si);
-    auto it0 = (*States2)[false].begin(), it1 = (*States2)[true].begin();
-    while (it0 != (*States2)[false].end()) {
+        (*States2)[true].insert((*States2)[true].cend(), p - q - 1, StateInfo(0));
+    auto it0 = (*States2)[false].rbegin(), it1 = (*States2)[true].rbegin();
+    while (it0 != (*States2)[false].rend()) {
       (it0++)->previous = &*it1;
-      if (it0 == (*States2)[false].end())
+      if (it0 == (*States2)[false].rend())
         break;
       (it1++)->previous = &*it0;
 

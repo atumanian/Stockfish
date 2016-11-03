@@ -207,7 +207,7 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
       setupStates = std::move(states); // Ownership transfer, states is now empty
 
   //StateInfo tmp = setupStates->back();
-      (*setupStates)[true].push_front(StateInfo());
+      (*setupStates)[true].push_back(StateInfo());
   }
 
   for (Thread* th : Threads)
@@ -216,12 +216,12 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
       th->tbHits = 0;
       th->rootDepth = DEPTH_ZERO;
       th->rootMoves = rootMoves;
-      th->rootPos.set(pos.fen(), pos.is_chess960(), &(*setupStates)[true].front(), th);
+      th->rootPos.set(pos.fen(), pos.is_chess960(), &(*setupStates)[true].back(), th);
   }
 
   //setupStates->back() = tmp; // Restore st->previous, cleared by Position::set()
-  (*setupStates)[true].front().previous = (*setupStates)[false].empty() ? nullptr : &(*setupStates)[false].front();
-  (*setupStates)[true].front().pliesForRepetition = (*setupStates)[false].size() + (*setupStates)[true].size() - 1;
+  (*setupStates)[true].back().previous = (*setupStates)[false].empty() ? nullptr : &(*setupStates)[false].back();
+  (*setupStates)[true].back().pliesForRepetition = (*setupStates)[false].size() + (*setupStates)[true].size() - 1;
 
   main()->start_searching();
 }

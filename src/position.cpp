@@ -742,9 +742,13 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   // Update castling rights if needed
   if (st->castlingRights && (castlingRightsMask[from] | castlingRightsMask[to]))
   {
-      int cr = castlingRightsMask[from] | castlingRightsMask[to];
-      k ^= Zobrist::castling[st->castlingRights & cr];
-      st->castlingRights &= ~cr;
+      int removedCR = st->castlingRights & (castlingRightsMask[from] | castlingRightsMask[to]);
+
+      if (removedCR) {
+        k ^= Zobrist::castling[removedCR];
+        st->castlingRights &= ~removedCR;
+        st->pliesForRepetition = 0;
+      }
   }
 
   // Move the piece. The tricky Chess960 castling is handled earlier
@@ -793,9 +797,6 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       st->rule50 = 0;
       st->pliesForRepetition = 0;
   }
-
-  if (st->castlingRights != st->previous->castlingRights)
-    st->pliesForRepetition = 0;
 
   // Update incremental scores
   st->psq += PSQT::psq[pc][to] - PSQT::psq[pc][from];
