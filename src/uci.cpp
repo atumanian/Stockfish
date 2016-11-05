@@ -70,7 +70,7 @@ namespace {
     else
         return;
 
-    States = std::deque<StateInfo>(1);
+    States.resize(1);
     States2 = StateListPtr(reinterpret_cast<StateList*>(new StateList));
     unsigned breakingMove = 0;
 
@@ -81,27 +81,39 @@ namespace {
     {
         States.push_back(StateInfo());
         pos.do_move(m, States.back(), pos.gives_check(m));
-        if (States.back().pliesForRepetition == 0)
+
+        if (States.back().statesForRepetition == 0)
             breakingMove = States.size() - 1;
     }
-    bool relativeStm = (States.size() - breakingMove) % 2;
-    std::unordered_set<Key> repeatedOnce[2];
-    for (auto it = States.cbegin() + breakingMove; it != States.cend() - 1; ++it, relativeStm = !relativeStm)
-        if (repeatedOnce[relativeStm].count(it->key))
-            (*States2)[relativeStm].push_back(StateInfo(it->key));
-        else repeatedOnce[relativeStm].insert(it->key);
-    unsigned p = (*States2)[false].size(), q = (*States2)[true].size();
-    if (p < q)
-        (*States2)[false].insert((*States2)[false].cend(), q - p, StateInfo(0));
-    else if (p > q + 1)
-        (*States2)[true].insert((*States2)[true].cend(), p - q - 1, StateInfo(0));
-    auto it0 = (*States2)[false].rbegin(), it1 = (*States2)[true].rbegin();
-    while (it0 != (*States2)[false].rend()) {
-      (it0++)->previous = &*it1;
-      if (it0 == (*States2)[false].rend())
-        break;
-      (it1++)->previous = &*it0;
 
+    {
+        bool relativeStm = (States.size() - breakingMove) % 2;
+        std::unordered_set<Key> repeatedOnce[2];
+
+        for (auto it = States.cbegin() + breakingMove; it != States.cend() - 1; ++it, relativeStm = !relativeStm)
+            if (repeatedOnce[relativeStm].count(it->key))
+                (*States2)[relativeStm].push_back(StateInfo(it->key));
+            else repeatedOnce[relativeStm].insert(it->key);
+    }
+
+    {
+        unsigned p = (*States2)[false].size(), q = (*States2)[true].size();
+
+        if (p < q)
+            (*States2)[false].insert((*States2)[false].cend(), q - p, StateInfo(0));
+        else if (p > q + 1)
+            (*States2)[true].insert((*States2)[true].cend(), p - q - 1, StateInfo(0));
+
+    }
+
+    if (!(*States2)[false].empty()) {
+        std::deque<StateInfo>::reverse_iterator it[2] {(*States2)[false].rbegin(), (*States2)[true].rbegin()};
+        bool relativeStm = false;
+
+        for (; it[!relativeStm] != (*States2)[!relativeStm].rend(); relativeStm = !relativeStm)
+            (it[relativeStm]++)->previous = &*it[!relativeStm];
+
+        it[relativeStm]->previous = nullptr;
     }
   }
 

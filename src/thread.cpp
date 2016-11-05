@@ -206,9 +206,10 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
   if (states.get()) {
       setupStates = std::move(states); // Ownership transfer, states is now empty
 
-  //StateInfo tmp = setupStates->back();
       (*setupStates)[true].push_back(StateInfo());
   }
+
+  StateInfo *si = &(*setupStates)[true].back();
 
   for (Thread* th : Threads)
   {
@@ -216,12 +217,21 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
       th->tbHits = 0;
       th->rootDepth = DEPTH_ZERO;
       th->rootMoves = rootMoves;
-      th->rootPos.set(pos.fen(), pos.is_chess960(), &(*setupStates)[true].back(), th);
+      th->rootPos.set(pos.fen(), pos.is_chess960(), si, th);
   }
 
-  //setupStates->back() = tmp; // Restore st->previous, cleared by Position::set()
-  (*setupStates)[true].back().previous = (*setupStates)[false].empty() ? nullptr : &(*setupStates)[false].back();
-  (*setupStates)[true].back().pliesForRepetition = (*setupStates)[false].size() + (*setupStates)[true].size() - 1;
+  si->previous = (*setupStates)[false].empty() ? nullptr : &(*setupStates)[false].back();
+  si->statesForRepetition = (*setupStates)[false].size() + (*setupStates)[true].size() - 1;
+
+  #ifndef NDEBUG
+      for (int i = si->statesForRepetition; i > 0; --i) {
+        assert(si->previous);
+        si = si->previous;
+      }
+
+      assert(!si->previous);
+  #endif // NDEBUG
 
   main()->start_searching();
 }
+

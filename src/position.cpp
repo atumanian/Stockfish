@@ -661,7 +661,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   // in case of a capture or a pawn move.
   ++gamePly;
   ++st->rule50;
-  ++st->pliesForRepetition;
+  ++st->statesForRepetition;
 
   Color us = sideToMove;
   Color them = ~us;
@@ -726,7 +726,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
       // Reset rule 50 counter
       st->rule50 = 0;
-      st->pliesForRepetition = 0;
+      st->statesForRepetition = 0;
   }
 
   // Update hash key
@@ -747,7 +747,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       if (removedCR) {
         k ^= Zobrist::castling[removedCR];
         st->castlingRights &= ~removedCR;
-        st->pliesForRepetition = 0;
+        st->statesForRepetition = 0;
       }
   }
 
@@ -795,7 +795,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
 
       // Reset rule 50 draw counter
       st->rule50 = 0;
-      st->pliesForRepetition = 0;
+      st->statesForRepetition = 0;
   }
 
   // Update incremental scores
@@ -924,7 +924,7 @@ void Position::do_null_move(StateInfo& newSt) {
   prefetch(TT.first_entry(st->key));
 
   ++st->rule50;
-  st->pliesForRepetition = 0;
+  st->statesForRepetition = 0;
 
   sideToMove = ~sideToMove;
 
@@ -1050,7 +1050,7 @@ bool Position::is_draw() const {
       return true;
 
   StateInfo* stp = st;
-  for (int i = 2, e = st->pliesForRepetition; i <= e; i += 2)
+  for (int i = 2, e = st->statesForRepetition; i <= e; i += 2)
   {
       stp = stp->previous->previous;
 
