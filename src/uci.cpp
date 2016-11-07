@@ -30,6 +30,7 @@
 #include "thread.h"
 #include "timeman.h"
 #include "uci.h"
+#include "syzygy/tbprobe.h"
 
 using namespace std;
 
@@ -224,6 +225,7 @@ void UCI::loop(int argc, char* argv[]) {
       else if (token == "ucinewgame")
       {
           Search::clear();
+          Tablebases::init(Options["SyzygyPath"]);
           Time.availableNodes = 0;
       }
       else if (token == "isready")    sync_cout << "readyok" << sync_endl;

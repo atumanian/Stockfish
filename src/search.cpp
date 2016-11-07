@@ -183,8 +183,6 @@ void Search::init() {
           for (int mc = 1; mc < 64; ++mc)
           {
               double r = log(d) * log(mc) / 2;
-              if (r < 0.80)
-                continue;
 
               Reductions[NonPV][imp][d][mc] = int(std::round(r));
               Reductions[PV][imp][d][mc] = std::max(Reductions[NonPV][imp][d][mc] - 1, 0);
@@ -214,6 +212,7 @@ void Search::clear() {
       th->counterMoves.clear();
       th->fromTo.clear();
       th->counterMoveHistory.clear();
+      th->resetCalls = true;
   }
 
   Threads.main()->previousScore = VALUE_INFINITE;
@@ -461,11 +460,7 @@ void Thread::search() {
           if (!mainThread)
               continue;
 
-          if (Signals.stop)
-              sync_cout << "info nodes " << Threads.nodes_searched()
-                        << " time " << Time.elapsed() << sync_endl;
-
-          else if (PVIdx + 1 == multiPV || Time.elapsed() > 3000)
+          if (Signals.stop || PVIdx + 1 == multiPV || Time.elapsed() > 3000)
               sync_cout << UCI::pv(rootPos, rootDepth, alpha, beta) << sync_endl;
       }
 
@@ -570,6 +565,7 @@ namespace {
     Thread* thisThread = pos.this_thread();
     inCheck = pos.checkers();
     moveCount = quietCount =  ss->moveCount = 0;
+    ss->history = VALUE_ZERO;
     bestValue = -VALUE_INFINITE;
     ss->ply = (ss-1)->ply + 1;
 
@@ -667,9 +663,10 @@ namespace {
             &&  pos.rule50_count() == 0
             && !pos.can_castle(ANY_CASTLING))
         {
-            int found, v = Tablebases::probe_wdl(pos, &found);
+            TB::ProbeState err;
+            TB::WDLScore v = Tablebases::probe_wdl(pos, &err);
 
-            if (found)
+            if (err != TB::ProbeState::FAIL)
             {
                 thisThread->tbHits++;
 
@@ -994,14 +991,22 @@ moves_loop: // When in check search starts from here
                        && !pos.see_ge(make_move(to_sq(move), from_sq(move)),  VALUE_ZERO))
                   r -= 2 * ONE_PLY;
 
+              ss->history = thisThread->history[moved_piece][to_sq(move)]
+                           +    (cmh  ? (*cmh )[moved_piece][to_sq(move)] : VALUE_ZERO)
+                           +    (fmh  ? (*fmh )[moved_piece][to_sq(move)] : VALUE_ZERO)
+                           +    (fmh2 ? (*fmh2)[moved_piece][to_sq(move)] : VALUE_ZERO)
+                           +    thisThread->fromTo.get(~pos.side_to_move(), move)
+                           -    8000; // Correction factor
+
+              // Decrease/increase reduction by comparing opponent's stat score
+              if (ss->history > VALUE_ZERO && (ss-1)->history < VALUE_ZERO)
+                  r -= ONE_PLY;
+
+              else if (ss->history < VALUE_ZERO && (ss-1)->history > VALUE_ZERO)
+                  r += ONE_PLY;
+
               // Decrease/increase reduction for moves with a good/bad history
-              Value val = thisThread->history[moved_piece][to_sq(move)]
-                         +    (cmh  ? (*cmh )[moved_piece][to_sq(move)] : VALUE_ZERO)
-                         +    (fmh  ? (*fmh )[moved_piece][to_sq(move)] : VALUE_ZERO)
-                         +    (fmh2 ? (*fmh2)[moved_piece][to_sq(move)] : VALUE_ZERO)
-                         +    thisThread->fromTo.get(~pos.side_to_move(), move);
-              int rHist = (val - 8000) / 20000;
-              r = std::max(DEPTH_ZERO, (r / ONE_PLY - rHist) * ONE_PLY);
+              r = std::max(DEPTH_ZERO, (r / ONE_PLY - ss->history / 20000) * ONE_PLY);
           }
 
           Depth d = std::max(newDepth - r, ONE_PLY);
