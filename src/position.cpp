@@ -261,7 +261,7 @@ Position& Position::set(const string& fenStr, bool isChess960, StateInfo* si, Th
       st->epSquare = SQ_NONE;
 
   // 5-6. Halfmove clock and fullmove number
-  ss >> std::skipws >> st->counters.rule50 >> gamePly;
+  ss >> std::skipws >> st->rule50 >> gamePly;
 
   // Convert from fullmove starting from 1 to ply starting from 0,
   // handle also common incorrect FEN with fullmove = 0.
@@ -435,7 +435,7 @@ const string Position::fen() const {
       ss << '-';
 
   ss << (ep_square() == SQ_NONE ? " - " : " " + UCI::square(ep_square()) + " ")
-     << st->counters.rule50 << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
+     << st->rule50 << " " << 1 + (gamePly - (sideToMove == BLACK)) / 2;
 
   return ss.str();
 }
@@ -694,8 +694,8 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   // Increment ply counters. In particular, rule50 will be reset to zero later on
   // in case of a capture or a pawn move.
   ++gamePly;
-  ++st->counters.rule50;
-  ++st->counters.statesForRepetition;
+  ++st->rule50;
+  ++st->statesForRepetition;
 
   Color us = sideToMove;
   Color them = ~us;
@@ -759,7 +759,8 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       st->psq -= PSQT::psq[captured][capsq];
 
       // Reset rule 50 counter
-      st->counters.reset();
+      st->rule50 = 0;
+      st->statesForRepetition = 0;
   }
 
   // Update hash key
@@ -777,7 +778,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
   {
         k ^= Zobrist::castling[removedCR];
         st->castlingRights &= ~removedCR;
-        st->counters.statesForRepetition = 0;
+        st->statesForRepetition = 0;
   }
 
   // Move the piece. The tricky Chess960 castling is handled earlier
@@ -823,7 +824,8 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
       prefetch(thisThread->pawnsTable[st->pawnKey]);
 
       // Reset rule 50 draw counter
-      st->counters.reset();
+      st->rule50 = 0;
+      st->statesForRepetition = 0;
   }
 
   // Update incremental scores
@@ -951,8 +953,8 @@ void Position::do_null_move(StateInfo& newSt) {
   st->key ^= Zobrist::side;
   prefetch(TT.first_entry(st->key));
 
-  ++st->counters.rule50;
-  st->counters.statesForRepetition = 0;
+  ++st->rule50;
+  st->statesForRepetition = 0;
 
   sideToMove = ~sideToMove;
 
@@ -1074,11 +1076,11 @@ bool Position::see_ge(Move m, Value v) const {
 
 bool Position::is_draw() const {
 
-  if (st->counters.rule50 > 99 && (!checkers() || MoveList<LEGAL>(*this).size()))
+  if (st->rule50 > 99 && (!checkers() || MoveList<LEGAL>(*this).size()))
       return true;
 
   StateInfo* stp = st;
-  for (int i = 2, e = st->counters.statesForRepetition; i <= e; i += 2)
+  for (int i = 2, e = st->statesForRepetition; i <= e; i += 2)
   {
       stp = stp->previous->previous;
 

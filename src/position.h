@@ -25,7 +25,6 @@
 #include <deque>
 #include <memory> // For std::unique_ptr
 #include <string>
-#include <cstring>
 
 #include "bitboard.h"
 #include "types.h"
@@ -41,11 +40,8 @@ struct StateInfo {
   Key    pawnKey;
   Key    materialKey;
   Value  nonPawnMaterial[COLOR_NB];
-  struct {
-    int    rule50;
-    int    statesForRepetition;
-    void reset() { memset(this, 0, sizeof(counters)); }
-  } counters;
+  int    rule50;
+  int    statesForRepetition;
   int    castlingRights;
   Score  psq;
   Square epSquare;
@@ -342,7 +338,7 @@ inline int Position::game_ply() const {
 }
 
 inline int Position::rule50_count() const {
-  return st->counters.rule50;
+  return st->rule50;
 }
 
 inline uint64_t Position::nodes_searched() const {

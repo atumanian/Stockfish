@@ -1490,7 +1490,7 @@ int Tablebases::probe_dtz(Position& pos, ProbeState* result) {
 static int has_repeated(StateInfo *st)
 {
     while (1) {
-        int i = 4, e = st->counters.statesForRepetition;
+        int i = 4, e = st->statesForRepetition;
 
         if (e < i)
             return 0;
@@ -1540,7 +1540,7 @@ bool Tablebases::root_probe(Position& pos, Search::RootMoves& rootMoves, Value& 
         }
 
         if (!v) {
-            if (st.counters.rule50 != 0) {
+            if (st.rule50 != 0) {
                 v = -probe_dtz(pos, &result);
 
                 if (v > 0)
@@ -1563,7 +1563,7 @@ bool Tablebases::root_probe(Position& pos, Search::RootMoves& rootMoves, Value& 
 
     // Obtain 50-move counter for the root position.
     // In Stockfish there seems to be no clean way, so we do it like this:
-    int cnt50 = st.previous->counters.rule50;
+    int cnt50 = st.previous->rule50;
 
     // Use 50-move counter to determine whether the root position is
     // won, lost or drawn.

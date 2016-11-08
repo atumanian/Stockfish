@@ -221,10 +221,10 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
   }
 
   si->previous = (*setupStates)[false].empty() ? nullptr : &(*setupStates)[false].back();
-  si->counters.statesForRepetition = (*setupStates)[false].size() + (*setupStates)[true].size() - 1;
+  si->statesForRepetition = (*setupStates)[false].size() + (*setupStates)[true].size() - 1;
 
   #ifndef NDEBUG
-      for (int i = si->counters.statesForRepetition; i > 0; --i) {
+      for (int i = si->statesForRepetition; i > 0; --i) {
         assert(si->previous);
         si = si->previous;
       }
