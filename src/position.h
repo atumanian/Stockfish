@@ -40,9 +40,9 @@ struct StateInfo {
   Key    pawnKey;
   Key    materialKey;
   Value  nonPawnMaterial[COLOR_NB];
-  int    castlingRights;
   int    rule50;
   int    statesForRepetition;
+  int    castlingRights;
   Score  psq;
   Square epSquare;
 
