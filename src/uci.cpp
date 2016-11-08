@@ -83,7 +83,7 @@ namespace {
         States.push_back(StateInfo());
         pos.do_move(m, States.back(), pos.gives_check(m));
 
-        if (States.back().statesForRepetition == 0)
+        if (States.back().counters.statesForRepetition == 0)
             breakingMove = States.size() - 1;
     }
 
