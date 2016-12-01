@@ -65,19 +65,23 @@ typedef Stats<CounterMoveStats> CounterMoveHistoryStats;
 
 struct FromToStats {
 
-  Value get(Color c, Move m) const { return table[c][m]; }
+  Value get(Color c, Move m) const { return table[(c << 16) | m]; }
   void clear() { std::memset(table, 0, sizeof(table)); }
   void update(Color c, Move m, Value v) {
+
+    assert(type_of(m) != PROMOTION);
 
     if (abs(int(v)) >= 324)
         return;
 
-    table[c][m] -= table[c][m] * abs(int(v)) / 324;
-    table[c][m] += int(v) * 32;
+    int index = (c << 16) | m;
+
+    table[index] -= table[index] * abs(int(v)) / 324;
+    table[index] += int(v) * 32;
   }
 
 private:
-  Value table[COLOR_NB][1 << 16];
+  Value table[1 << 17];
 };
 
 
