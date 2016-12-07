@@ -101,6 +101,7 @@ struct SignalsType {
 
 extern SignalsType Signals;
 extern LimitsType Limits;
+extern int ShowInfo;
 
 void init();
 void clear();

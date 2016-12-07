@@ -192,6 +192,7 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
   Search::Signals.stopOnPonderhit = Search::Signals.stop = false;
   Search::Limits = limits;
   Search::RootMoves rootMoves;
+  Search::ShowInfo = Options["ShowInfo"];
 
   for (const auto& m : MoveList<LEGAL>(pos))
       if (   limits.searchmoves.empty()
