@@ -71,32 +71,36 @@ void TranspositionTable::clear() {
 /// minus 8 times its relative age. TTEntry t1 is considered more valuable than
 /// TTEntry t2 if its replace value is greater than that of t2.
 
-TTEntry* TranspositionTable::probe(const Key key, bool& found) const {
+TTEntry* TranspositionTable::probe(const Key k, bool& found) const {
+  TTEntry::Data entryData[ClusterCount];
 
   TTEntry* const tte = first_entry(key);
-  const uint16_t key16 = key >> 48;  // Use the high 16 bits as key inside the cluster
 
-  for (int i = 0; i < ClusterSize; ++i)
-      if (!tte[i].key16 || tte[i].key16 == key16)
+  for (int i = 0; i < ClusterSize; ++i) {
+      entryData[i] = tte[i].data;
+      Key key = tte[i].keyXorData ^ entryData[i];
+      if (!key || key == k)
       {
-          if ((tte[i].genBound8 & 0xFC) != generation8 && tte[i].key16)
-              tte[i].genBound8 = uint8_t(generation8 | tte[i].bound()); // Refresh
-
-          return found = (bool)tte[i].key16, &tte[i];
+          if (data.genBound8() & 0xFC) != generation8 && key) {
+             entryData[i] = entryData[i] & ~0xFCll | generation8;
+             tte[i].data = entryData[i];
+             tte[i].keyXorData = entryData[i] ^ key;
+          }
+          return found = (bool)key, &tte[i];
       }
 
   // Find an entry to be replaced according to the replacement strategy
-  TTEntry* replace = tte;
+  int replace = 0;
   for (int i = 1; i < ClusterSize; ++i)
       // Due to our packed storage format for generation and its cyclic
       // nature we add 259 (256 is the modulus plus 3 to keep the lowest
       // two bound bits from affecting the result) to calculate the entry
       // age correctly even after generation8 overflows into the next cycle.
-      if (  replace->depth8 - ((259 + generation8 - replace->genBound8) & 0xFC) * 2
-          >   tte[i].depth8 - ((259 + generation8 -   tte[i].genBound8) & 0xFC) * 2)
-          replace = &tte[i];
+      if (  entryData[replace].depth() - ((259 + generation8 - entryData[replace].generation()) * 2
+          >   entryData[i].depth() - ((259 + generation8 - entryData[i].generation()) * 2)
+          replace = i;
 
-  return found = false, replace;
+  return found = false, tte[replace];
 }
 
 
