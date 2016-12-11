@@ -71,23 +71,24 @@ void TranspositionTable::clear() {
 /// minus 8 times its relative age. TTEntry t1 is considered more valuable than
 /// TTEntry t2 if its replace value is greater than that of t2.
 
-TTEntry* TranspositionTable::probe(const Key k, bool& found) const {
-  TTEntry::Data entryData[ClusterCount];
+TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& found) const {
+  TTEntry::Data entryData[ClusterSize];
 
-  TTEntry* const tte = first_entry(key);
+  TTEntry* const tte = first_entry(k);
 
   for (int i = 0; i < ClusterSize; ++i) {
       entryData[i] = tte[i].data;
-      Key key = tte[i].keyXorData ^ entryData[i];
+      Key key = entryData[i] ^ tte[i].keyXorData;
       if (!key || key == k)
       {
-          if (data.genBound8() & 0xFC) != generation8 && key) {
-             entryData[i] = entryData[i] & ~0xFCll | generation8;
+          if ((entryData[i].genBound() & 0xFC) != generation8 && key) {
+             entryData[i].setGeneration(generation8);
              tte[i].data = entryData[i];
              tte[i].keyXorData = entryData[i] ^ key;
           }
-          return found = (bool)key, &tte[i];
+          return found = (bool)key, ttData = entryData[i], &tte[i];
       }
+  }
 
   // Find an entry to be replaced according to the replacement strategy
   int replace = 0;
@@ -96,11 +97,11 @@ TTEntry* TranspositionTable::probe(const Key k, bool& found) const {
       // nature we add 259 (256 is the modulus plus 3 to keep the lowest
       // two bound bits from affecting the result) to calculate the entry
       // age correctly even after generation8 overflows into the next cycle.
-      if (  entryData[replace].depth() - ((259 + generation8 - entryData[replace].generation()) * 2
-          >   entryData[i].depth() - ((259 + generation8 - entryData[i].generation()) * 2)
+      if (  entryData[replace].depth() - ((259 + generation8 - entryData[replace].genBound()) & 0xFC) * 2
+          >   entryData[i].depth() - ((259 + generation8 - entryData[i].genBound()) & 0xFC) * 2)
           replace = i;
 
-  return found = false, tte[replace];
+  return found = false, ttData = entryData[replace], &tte[replace];
 }
 
 
@@ -114,7 +115,7 @@ int TranspositionTable::hashfull() const {
   {
       const TTEntry* tte = &table[i].entry[0];
       for (int j = 0; j < ClusterSize; j++)
-          if ((tte[j].genBound8 & 0xFC) == generation8)
+          if ((tte[j].data.genBound() & 0xFC) == generation8)
               cnt++;
   }
   return cnt;
