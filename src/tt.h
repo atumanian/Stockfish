@@ -45,7 +45,7 @@ struct TTEntry {
     Bound bound() const { return Bound(data & 0x3); }
     Key operator^(Key keyXorData) { return data ^ keyXorData; }
     void operator=(uint64_t d) { data = d; }
-    void setGeneration(uint8_t gen) { data = data & ~0xFCll | gen; }
+    void setGeneration(uint8_t gen) { data = (data & 0xFFFFFFFFFFFFFF03) | gen; }
     void set(Move m, Value v, Value ev, Depth d, uint8_t g, Bound b) {
         data = uint64_t(m) << 48;
         data |= uint64_t(uint16_t(v)) << 32;

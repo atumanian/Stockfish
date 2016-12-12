@@ -694,8 +694,11 @@ namespace {
     else if (ttHit)
     {
         // Never assume anything on values stored in TT
-        if ((ss->staticEval = eval = ttData.eval()) == VALUE_NONE)
-            eval = ss->staticEval = evaluate(pos);
+        /*if ((ss->staticEval = eval = ttData.eval()) == VALUE_NONE)
+            eval = ss->staticEval = evaluate(pos);*/
+        ss->staticEval = eval = ttData.eval();
+
+        assert(eval != VALUE_NONE);
 
         // Can ttValue be used as a better position evaluation?
         if (ttValue != VALUE_NONE)
@@ -1210,7 +1213,7 @@ moves_loop: // When in check search starts from here
     if (  !PvNode
         && ttHit
         && ttData.depth() >= ttDepth
-        && ttValue != VALUE_NONE // Only in case of TT access race
+        //&& ttValue != VALUE_NONE // Only in case of TT access race
         && (ttValue >= beta ? (ttData.bound() &  BOUND_LOWER)
                             : (ttData.bound() &  BOUND_UPPER)))
         return ttValue;
@@ -1226,8 +1229,12 @@ moves_loop: // When in check search starts from here
         if (ttHit)
         {
             // Never assume anything on values stored in TT
-            if ((ss->staticEval = bestValue = ttData.eval()) == VALUE_NONE)
-                ss->staticEval = bestValue = evaluate(pos);
+            /*if ((ss->staticEval = bestValue = ttData.eval()) == VALUE_NONE)
+                ss->staticEval = bestValue = evaluate(pos);*/
+
+            ss->staticEval = bestValue = ttData.eval();
+
+            assert(bestValue != VALUE_NONE);
 
             // Can ttValue be used as a better position evaluation?
             if (ttValue != VALUE_NONE)
