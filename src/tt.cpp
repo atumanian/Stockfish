@@ -72,21 +72,21 @@ void TranspositionTable::clear() {
 /// TTEntry t2 if its replace value is greater than that of t2.
 
 TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& found) const {
-  TTEntry::Data entryData[ClusterSize];
+ // TTEntry::Data entryData[ClusterSize];
 
   TTEntry* const tte = first_entry(k);
 
   for (int i = 0; i < ClusterSize; ++i) {
-      entryData[i] = tte[i].data;
-      Key key = entryData[i] ^ tte[i].keyXorData;
+      TTEntry::Data rdata = tte[i].data;
+      Key key = rdata ^ tte[i].keyXorData;
       if (!key || key == k)
       {
-          if ((entryData[i].genBound() & 0xFC) != generation8 && key) {
-             entryData[i].setGeneration(generation8);
-             tte[i].data = entryData[i];
-             tte[i].keyXorData = entryData[i] ^ key;
+          if ((rdata.genBound() & 0xFC) != generation8 && key) {
+             rdata.setGeneration(generation8);
+             tte[i].data = rdata;
+             tte[i].keyXorData = rdata ^ key;
           }
-          return found = (bool)key, ttData = entryData[i], &tte[i];
+          return found = (bool)key, ttData = rdata, &tte[i];
       }
   }
 
@@ -97,11 +97,11 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& fou
       // nature we add 259 (256 is the modulus plus 3 to keep the lowest
       // two bound bits from affecting the result) to calculate the entry
       // age correctly even after generation8 overflows into the next cycle.
-      if (  entryData[replace].depth() - ((259 + generation8 - entryData[replace].genBound()) & 0xFC) * 2
-          >   entryData[i].depth() - ((259 + generation8 - entryData[i].genBound()) & 0xFC) * 2)
+      if (  tte[replace].data.depth() - ((259 + generation8 - tte[replace].data.genBound()) & 0xFC) * 2
+          >   tte[i].data.depth() - ((259 + generation8 - tte[i].data.genBound()) & 0xFC) * 2)
           replace = i;
 
-  return found = false, ttData = entryData[replace], &tte[replace];
+  return found = false, &tte[replace];
 }
 
 
