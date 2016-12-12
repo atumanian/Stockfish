@@ -47,18 +47,10 @@ struct TTEntry {
     void operator=(uint64_t d) { data = d; }
     void setGeneration(uint8_t gen) { data = (data & 0xFFFFFFFFFFFFFF03) | gen; }
     void set(Move m, Value v, Value ev, Depth d, uint8_t g, Bound b) {
-        data = uint64_t(m) << 48;
-        data |= uint64_t(uint16_t(v)) << 32;
-        data |= uint64_t(uint16_t(ev)) << 16;
-        data |= uint64_t(uint8_t(d)) << 8;
-        data |= g | b;
+        data = uint64_t(m << 16 | uint16_t(v)) << 32 | uint32_t(ev << 16 | uint8_t(d) << 8 | g | b);
     }
     void set(Value v, Value ev, Depth d, uint8_t g, Bound b) {
-        data &= 0xFFFF000000000000;
-        data |= uint64_t(uint16_t(v)) << 32;
-        data |= uint64_t(uint16_t(ev)) << 16;
-        data |= uint64_t(uint8_t(d)) << 8;
-        data |= g | b;
+        data = (data & 0xFFFF000000000000) | uint64_t(uint16_t(v)) << 32 | uint32_t(ev << 16 | uint8_t(d) << 8 | g | b);
     }
 
   private:
@@ -138,11 +130,8 @@ public:
   void clear();
 
   // The lowest order bits of the key are used to get the index of the cluster
-  TTEntry* first_entry(const Key key) {
-    return &table[cluster_index(key)].entry[0];
-  }
-  size_t cluster_index(const Key key) const {
-    return key & clusterIndexMask;
+  TTEntry* first_entry(const Key key) const {
+    return &table[key & clusterIndexMask].entry[0];
   }
 
 private:

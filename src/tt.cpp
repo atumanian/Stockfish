@@ -73,22 +73,20 @@ void TranspositionTable::clear() {
 /// TTEntry t2 if its replace value is greater than that of t2.
 
 TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& found) const {
-  size_t index = cluster_index(k);
-  TTEntry* const tte = &table[index].entry[0];
+  TTEntry* const tte = first_entry(k);
 
   for (int i = 0; i < ClusterSize; ++i) {
+      if (!tte[i].keyXorData)
+        return found = false, &tte[i];
       TTEntry::Data rdata;
       Key key;
       tte[i].read(key, rdata);
-      found = key == k;
-      if (found || index != cluster_index(key))
-      {
-          //dbg_hit_on(key && index != cluster_index(key));
-          if (found && (rdata.genBound() & 0xFC) != generation8) {
+      if (key == k) {
+        if ((rdata.genBound() & 0xFC) != generation8) {
              rdata.setGeneration(generation8);
              tte[i].write(key, rdata);
-          }
-          return ttData = rdata, &tte[i];
+        }
+        return found = true, ttData = rdata, &tte[i];
       }
   }
 
@@ -103,7 +101,7 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& fou
           >   tte[i].data.depth() - ((259 + generation8 - tte[i].data.genBound()) & 0xFC) * 2)
           replace = i;
 
-  return &tte[replace];
+  return found = false, &tte[replace];
 }
 
 
