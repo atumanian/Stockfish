@@ -37,26 +37,29 @@
 struct TTEntry {
 
   struct Data {
-  Move  move()  const { return Move(data / (1ul << 48)); }
-  Value value() const { return Value(int16_t(data >> 32 & 0xFFFF)); }
-  Value eval()  const { return Value(int16_t(data >> 16 & 0xFFFF)); }
-  Depth depth() const { return Depth(int8_t(data >> 8 & 0xFF) * int(ONE_PLY)); }
-  uint8_t genBound() const { return data & 0xFF; }
-  Bound bound() const { return Bound(data & 0x3); }
-  Key operator^(Key keyXorData) { return data ^ keyXorData; }
-  void operator=(uint64_t d) { data = d; }
-  void setGeneration(uint8_t gen) { data = data & ~0xFCll | gen; }
-  void set(Move m, Value v, Value ev, Depth d, uint8_t g, Bound b) {
-        data = m;
-        data <<= 16;
-        data |= uint16_t(v);
-        data <<= 16;
-        data |= uint16_t(ev);
-        data <<= 8;
-        data |= uint8_t(d);
-        data <<= 8;
+    Move  move()  const { return Move(data / (1ul << 48)); }
+    Value value() const { return Value(int16_t(data >> 32 & 0xFFFF)); }
+    Value eval()  const { return Value(int16_t(data >> 16 & 0xFFFF)); }
+    Depth depth() const { return Depth(int8_t(data >> 8 & 0xFF) * int(ONE_PLY)); }
+    uint8_t genBound() const { return data & 0xFF; }
+    Bound bound() const { return Bound(data & 0x3); }
+    Key operator^(Key keyXorData) { return data ^ keyXorData; }
+    void operator=(uint64_t d) { data = d; }
+    void setGeneration(uint8_t gen) { data = data & ~0xFCll | gen; }
+    void set(Move m, Value v, Value ev, Depth d, uint8_t g, Bound b) {
+        data = uint64_t(m) << 48;
+        data |= uint64_t(uint16_t(v)) << 32;
+        data |= uint64_t(uint16_t(ev)) << 16;
+        data |= uint64_t(uint8_t(d)) << 8;
         data |= g | b;
-  }
+    }
+    void set(Value v, Value ev, Depth d, uint8_t g, Bound b) {
+        data &= 0xFFFF000000000000;
+        data |= uint64_t(uint16_t(v)) << 32;
+        data |= uint64_t(uint16_t(ev)) << 16;
+        data |= uint64_t(uint8_t(d)) << 8;
+        data |= g | b;
+    }
 
   private:
     uint64_t data;
@@ -71,9 +74,9 @@ struct TTEntry {
   void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint8_t g) {
 
     assert(d / ONE_PLY * ONE_PLY == d);
-    Data rdata = data;
-
-    Key key = rdata ^ keyXorData;
+    Data rdata;
+    Key key;
+    read(key, rdata);
 
     // Don't overwrite more valuable entries
     if (  k != key
@@ -82,16 +85,25 @@ struct TTEntry {
         || b == BOUND_EXACT)
     {
         // Preserve any existing move for the same position
-        Move move16 = m || k != key ? m : rdata.move();
-        rdata.set(move16, v, ev, d, g, b);
+        if (m || k != key)
+          rdata.set(m, v, ev, d, g, b);
+        else rdata.set(v, ev, d, g, b);
         //data = uint64_t(uint16_t(move16)) << 48 | uint64_t(uint16_t(v)) << 32 | uint64_t(uint16_t(ev)) << 16 | uint32_t(uint8_t(d)) << 8 | g | b;
-        data = rdata;
-        keyXorData = rdata ^ k;
+        write(k, rdata);
     }
   }
 
 private:
   friend class TranspositionTable;
+
+  void read(Key& key, Data& rdata) {
+      rdata = data;
+      key = rdata ^ keyXorData;
+  }
+  void write(Key key, Data rdata) {
+      data = rdata;
+      keyXorData = rdata ^ key;
+  }
 
   uint64_t keyXorData;
   Data data;
