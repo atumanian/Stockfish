@@ -105,7 +105,7 @@ private:
 class TranspositionTable {
 
   static const int CacheLineSize = 64;
-  static const int ClusterSize = 2;
+  static const int ClusterSize = 4;
 
   struct Cluster {
     TTEntry entry[ClusterSize];
