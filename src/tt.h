@@ -37,7 +37,7 @@
 struct TTEntry {
 
   struct Data {
-    Move  move()  const { return Move(data / (1ul << 48)); }
+    Move  move()  const { return Move(data / (uint64_t(1) << 48)); }
     Value value() const { return Value(int16_t(data >> 32 & 0xFFFF)); }
     Value eval()  const { return Value(int16_t(data >> 16 & 0xFFFF)); }
     Depth depth() const { return Depth(int8_t(data >> 8 & 0xFF) * int(ONE_PLY)); }
@@ -138,12 +138,16 @@ public:
   void clear();
 
   // The lowest order bits of the key are used to get the index of the cluster
-  TTEntry* first_entry(const Key key) const {
-    return &table[(size_t)key & (clusterCount - 1)].entry[0];
+  TTEntry* first_entry(const Key key) {
+    return &table[cluster_index(key)].entry[0];
+  }
+  size_t cluster_index(const Key key) const {
+    return key & clusterIndexMask;
   }
 
 private:
   size_t clusterCount;
+  Key clusterIndexMask;
   Cluster* table;
   void* mem;
   uint8_t generation8; // Size must be not bigger than TTEntry::genBound8

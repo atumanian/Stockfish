@@ -39,6 +39,7 @@ void TranspositionTable::resize(size_t mbSize) {
       return;
 
   clusterCount = newClusterCount;
+  clusterIndexMask = newClusterCount - 1;
 
   free(mem);
   mem = calloc(clusterCount * sizeof(Cluster) + CacheLineSize - 1, 1);
@@ -73,20 +74,20 @@ void TranspositionTable::clear() {
 
 TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& found) const {
  // TTEntry::Data entryData[ClusterSize];
-
-  TTEntry* const tte = first_entry(k);
+  size_t index = cluster_index(k);
+  TTEntry* const tte = &table[index].entry[0];
 
   for (int i = 0; i < ClusterSize; ++i) {
       TTEntry::Data rdata;
       Key key;
       tte[i].read(key, rdata);
-      if (!key || key == k)
+      if ((found = key == k) || index != cluster_index(key))
       {
-          if ((rdata.genBound() & 0xFC) != generation8 && key) {
+          if (found && (rdata.genBound() & 0xFC) != generation8) {
              rdata.setGeneration(generation8);
              tte[i].write(key, rdata);
           }
-          return found = (bool)key, ttData = rdata, &tte[i];
+          return ttData = rdata, &tte[i];
       }
   }
 
