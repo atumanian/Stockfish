@@ -37,11 +37,11 @@
 struct TTEntry {
 
   struct Data {
-    Move  move()  const { return Move(data / (uint64_t(1) << 48)); }
-    Value value() const { return Value(int16_t(data >> 32 & 0xFFFF)); }
-    Value eval()  const { return Value(int16_t(data >> 16 & 0xFFFF)); }
-    Depth depth() const { return Depth(int8_t(data >> 8 & 0xFF) * int(ONE_PLY)); }
-    uint8_t genBound() const { return data & 0xFF; }
+    Move  move()  const { return Move(data >> 48); }
+    Value value() const { return Value(int32_t(data >> 16) >> 16); }
+    Value eval()  const { return Value(int32_t(data) >> 16); }
+    Depth depth() const { return Depth((int32_t(data) << 16 >> 24) * int(ONE_PLY)); }
+    uint8_t genBound() const { return data; }
     Bound bound() const { return Bound(data & 0x3); }
     Key operator^(Key keyXorData) { return data ^ keyXorData; }
     void operator=(uint64_t d) { data = d; }
@@ -56,12 +56,6 @@ struct TTEntry {
   private:
     uint64_t data;
   };
-
-  /*Move  move()  const { return (Move )move16; }
-  Value value() const { return (Value)value16; }
-  Value eval()  const { return (Value)eval16; }
-  Depth depth() const { return (Depth)(depth8 * int(ONE_PLY)); }
-  Bound bound() const { return (Bound)(genBound8 & 0x3); }*/
 
   void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint8_t g) {
 
@@ -80,7 +74,6 @@ struct TTEntry {
         if (m || k != key)
           rdata.set(m, v, ev, d, g, b);
         else rdata.set(v, ev, d, g, b);
-        //data = uint64_t(uint16_t(move16)) << 48 | uint64_t(uint16_t(v)) << 32 | uint64_t(uint16_t(ev)) << 16 | uint32_t(uint8_t(d)) << 8 | g | b;
         write(k, rdata);
     }
   }
