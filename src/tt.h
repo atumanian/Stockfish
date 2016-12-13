@@ -42,8 +42,9 @@ struct TTEntry {
     Value eval()  const { return Value(int32_t(data) >> 16); }
     Depth depth() const { return Depth(int8_t(data) * int(ONE_PLY)); }
     uint8_t genBound() const { return data >> 8; }
+    int genBoundLower8() const { return data >> 8; }
     Bound bound() const { return Bound(data >> 8 & 0x03); }
-    Key operator^(Key keyXorData) { return data ^ keyXorData; }
+    Key operator^(Key keyXorData) const { return data ^ keyXorData; }
     void operator=(uint64_t d) { data = d; }
     void setGeneration(uint8_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen << 8; }
     void set(Move m, Value v, Value ev, Depth d, uint8_t g, Bound b) {
