@@ -82,7 +82,7 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& fou
       Key key;
       tte[i].read(key, rdata);
       if (key == k) {
-        if ((rdata.genBound() & 0xFC) != generation8) {
+        if (rdata.generation() != generation8) {
              rdata.setGeneration(generation8);
              tte[i].write(key, rdata);
         }
@@ -118,7 +118,7 @@ int TranspositionTable::hashfull() const {
   {
       const TTEntry* tte = &table[i].entry[0];
       for (int j = 0; j < ClusterSize; j++)
-          if ((tte[j].data.genBound() & 0xFC) == generation8)
+          if (tte[j].data.generation() == generation8)
               cnt++;
   }
   return cnt;
