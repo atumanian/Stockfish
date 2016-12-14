@@ -41,24 +41,24 @@ struct TTEntry {
     Value value() const { return Value(int64_t(data) >> 48); }
     Value eval()  const { return Value(int32_t(data) >> 16); }
     Depth depth() const { return Depth(int8_t(data) * int(ONE_PLY)); }
-    uint8_t generation() const { return (data >> 8) & 0xFC; }
-    int genBoundLower8() const { return data >> 8; }
-    Bound bound() const { return Bound(data >> 8 & 0x03); }
+    uint16_t generation() const { return data & 0xFC00; }
+    explicit operator int() { return data; }
+    Bound bound() const { return Bound(data & 0x300); }
     Key operator^(Key keyXorData) const { return data ^ keyXorData; }
     void operator=(uint64_t d) { data = d; }
-    void setGeneration(uint8_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen << 8; }
-    void set(Move m, Value v, Value ev, Depth d, uint8_t g, Bound b) {
-        data = uint64_t(v << 16 | m) << 32 | uint32_t(ev << 16 | (g | b) << 8 | uint8_t(d));
+    void setGeneration(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
+    void set(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
+        data = uint64_t(v << 16 | m) << 32 | uint32_t(ev << 16 | g | b | uint8_t(d));
     }
-    void set(Value v, Value ev, Depth d, uint8_t g, Bound b) {
-        data = (data & 0xFFFF00000000) | uint64_t(v) << 48 | uint32_t(ev << 16 | (g | b) << 8 | uint8_t(d));
+    void set(Value v, Value ev, Depth d, uint16_t g, Bound b) {
+        data = (data & 0xFFFF00000000) | uint64_t(v) << 48 | uint32_t(ev << 16 | g | b | uint8_t(d));
     }
 
   private:
     uint64_t data;
   };
 
-  void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint8_t g) {
+  void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
 
     assert(d / ONE_PLY * ONE_PLY == d);
     Data rdata;
@@ -82,7 +82,7 @@ struct TTEntry {
 private:
   friend class TranspositionTable;
 
-  void read(Key& key, Data& rdata) {
+  void read(Key& key, Data& rdata) const {
       rdata = data;
       key = rdata ^ keyXorData;
   }
@@ -116,8 +116,8 @@ class TranspositionTable {
 
 public:
  ~TranspositionTable() { free(mem); }
-  void new_search() { generation8 += 4; } // Lower 2 bits are used by Bound
-  uint8_t generation() const { return generation8; }
+  void new_search() { generation8 += 1024; } // Lower 2 bits are used by Bound
+  uint16_t generation() const { return generation8; }
   TTEntry* probe(const Key key, TTEntry::Data& ttData, bool& found) const;
   int hashfull() const;
   void resize(size_t mbSize);
@@ -133,7 +133,7 @@ private:
   Key clusterIndexMask;
   Cluster* table;
   void* mem;
-  uint8_t generation8; // Size must be not bigger than TTEntry::genBound8
+  uint16_t generation8; // Size must be not bigger than TTEntry::genBound8
 };
 
 extern TranspositionTable TT;

@@ -167,8 +167,8 @@ enum ScaleFactor {
 
 enum Bound {
   BOUND_NONE,
-  BOUND_UPPER,
-  BOUND_LOWER,
+  BOUND_UPPER = 1 << 8,
+  BOUND_LOWER = 2 << 8,
   BOUND_EXACT = BOUND_UPPER | BOUND_LOWER
 };
 
