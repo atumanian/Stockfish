@@ -631,26 +631,31 @@ namespace {
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->PVIdx].pv[0]
             : ttHit    ? ttData.move() : MOVE_NONE;
 
-    // At non-PV nodes we check for an early TT cutoff
-    if (  !PvNode
-        && ttHit
-        && ttData.depth() >= depth
-        //&& ttValue != VALUE_NONE // Possible in case of TT access race
-        && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
-                            : (ttData.bound() & BOUND_UPPER)))
-    {
+    // Check for an early TT cutoff
+    if (ttHit && ttData.depth() >= depth && ttValue != VALUE_NONE
+            && (!PvNode && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
+                    : (ttData.bound() & BOUND_UPPER))
+            || PvNode && !rootNode
+                    && (ttData.bound() == BOUND_EXACT || ttValue >= beta && ttData.bound() == BOUND_LOWER
+                    || ttValue <= alpha && ttData.bound() == BOUND_UPPER)))
+      {
         // If ttMove is quiet, update killers, history, counter move on TT hit
-        if (ttValue >= beta && ttMove)
-        {
-            if (!pos.capture_or_promotion(ttMove))
-                update_stats(pos, ss, ttMove, nullptr, 0, bonus(depth));
+            if (ttValue > alpha)
+            {
+                    if (ttMove && !pos.capture_or_promotion(ttMove))
+                        update_stats(pos, ss, ttMove, nullptr, 0, bonus(depth));
 
-            // Extra penalty for a quiet TT move in previous ply when it gets refuted
-            if ((ss-1)->moveCount == 1 && !pos.captured_piece())
-                update_cm_stats(ss-1, pos.piece_on(prevSq), prevSq, penalty(depth));
-        }
-        return ttValue;
-    }
+                    // Extra penalty for a quiet TT move in previous ply when it gets refuted
+                    if ((ss-1)->moveCount == 1 && !pos.captured_piece())
+                        update_cm_stats(ss-1, pos.piece_on(prevSq), prevSq, penalty(depth));
+            }
+            // Bonus for prior countermove that caused the fail low
+            else if (depth >= 3 * ONE_PLY
+                    && !pos.captured_piece()
+                    && is_ok((ss-1)->currentMove))
+                update_cm_stats(ss-1, pos.piece_on(prevSq), prevSq, bonus(depth));
+            return ttValue;
+      }
 
     // Step 4a. Tablebase probe
     if (!rootNode && TB::Cardinality)
@@ -1206,12 +1211,11 @@ moves_loop: // When in check search starts from here
     ttMove = ttHit ? ttData.move() : MOVE_NONE;
     ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
 
-    if (  !PvNode
-        && ttHit
-        && ttData.depth() >= ttDepth
-        //&& ttValue != VALUE_NONE // Only in case of TT access race
-        && (ttValue >= beta ? (ttData.bound() &  BOUND_LOWER)
-                            : (ttData.bound() &  BOUND_UPPER)))
+    if (ttHit && ttData.depth() >= depth
+            && (!PvNode && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
+                    : (ttData.bound() & BOUND_UPPER))
+            || PvNode && (ttData.bound() == BOUND_EXACT || ttValue >= beta && ttData.bound() == BOUND_LOWER
+                    || ttValue <= alpha && ttData.bound() == BOUND_UPPER)))
         return ttValue;
 
     // Evaluate the position statically
