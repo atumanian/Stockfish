@@ -632,13 +632,14 @@ namespace {
             : ttHit    ? ttData.move() : MOVE_NONE;
 
     // Check for an early TT cutoff
-    if (ttHit && ttData.depth() >= depth && ttValue != VALUE_NONE
+    if (ttHit && ttData.depth() >= depth
             && (!PvNode && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
                     : (ttData.bound() & BOUND_UPPER))
             || PvNode && !rootNode
                     && (ttData.bound() == BOUND_EXACT || ttValue >= beta && ttData.bound() == BOUND_LOWER
                     || ttValue <= alpha && ttData.bound() == BOUND_UPPER)))
       {
+            assert(ttValue != VALUE_NONE);
         // If ttMove is quiet, update killers, history, counter move on TT hit
             if (ttValue > alpha)
             {
@@ -1211,12 +1212,14 @@ moves_loop: // When in check search starts from here
     ttMove = ttHit ? ttData.move() : MOVE_NONE;
     ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
 
-    if (ttHit && ttData.depth() >= depth
+    if (ttHit && ttData.depth() >= ttDepth
             && (!PvNode && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
                     : (ttData.bound() & BOUND_UPPER))
             || PvNode && (ttData.bound() == BOUND_EXACT || ttValue >= beta && ttData.bound() == BOUND_LOWER
-                    || ttValue <= alpha && ttData.bound() == BOUND_UPPER)))
+                    || ttValue <= alpha && ttData.bound() == BOUND_UPPER))) {
+        assert(ttValue != VALUE_NONE);
         return ttValue;
+    }
 
     // Evaluate the position statically
     if (InCheck)
