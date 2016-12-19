@@ -635,7 +635,7 @@ namespace {
     if (ttHit && ttData.depth() >= depth
             && (!PvNode && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
                     : (ttData.bound() & BOUND_UPPER))
-            || PvNode && !rootNode
+            || PvNode && ss->ply >= 4
                     && (ttData.bound() == BOUND_EXACT || ttValue >= beta && ttData.bound() == BOUND_LOWER
                     || ttValue <= alpha && ttData.bound() == BOUND_UPPER)))
       {
