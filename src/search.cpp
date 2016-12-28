@@ -797,7 +797,7 @@ namespace {
         MovePicker mp(pos, ttMove, rbeta - ss->staticEval);
 
         while ((move = mp.next_move()) != MOVE_NONE)
-            if (pos.legal(move))
+            if (move == ttMove || pos.legal(move))
             {
                 ss->currentMove = move;
                 ss->counterMoves = &thisThread->counterMoveHistory[pos.moved_piece(move)][to_sq(move)];
@@ -951,7 +951,7 @@ moves_loop: // When in check search starts from here
       prefetch(TT.first_entry(pos.key_after(move)));
 
       // Check for legality just before making the move
-      if (!rootNode && !pos.legal(move))
+      if (move != ttMove && !rootNode && !pos.legal(move))
       {
           ss->moveCount = --moveCount;
           continue;
@@ -1313,7 +1313,7 @@ moves_loop: // When in check search starts from here
       prefetch(TT.first_entry(pos.key_after(move)));
 
       // Check for legality just before making the move
-      if (!pos.legal(move))
+      if (move != ttMove && !pos.legal(move))
           continue;
 
       ss->currentMove = move;
