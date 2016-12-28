@@ -631,6 +631,8 @@ namespace {
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->PVIdx].pv[0]
             : ttHit    ? ttData.move() : MOVE_NONE;
 
+    assert(ttMove == MOVE_NONE || (pos.pseudo_legal(ttMove) && pos.legal(ttMove)));
+
     // Check for an early TT cutoff
     if (ttHit && ttData.depth() >= depth
             && ((!PvNode && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
@@ -640,6 +642,7 @@ namespace {
                     || (ttValue <= alpha && ttData.bound() == BOUND_UPPER)))))
       {
             assert(ttValue != VALUE_NONE);
+
         // If ttMove is quiet, update killers, history, counter move on TT hit
             if (ttValue > alpha)
             {
@@ -801,7 +804,7 @@ namespace {
         MovePicker mp(pos, ttMove, rbeta - ss->staticEval);
 
         while ((move = mp.next_move()) != MOVE_NONE)
-            if (pos.legal(move))
+            if (move == ttMove || pos.legal(move))
             {
                 ss->currentMove = move;
                 ss->counterMoves = &thisThread->counterMoveHistory[pos.moved_piece(move)][to_sq(move)];
@@ -897,8 +900,7 @@ moves_loop: // When in check search starts from here
       // ttValue minus a margin then we extend the ttMove.
       if (    singularExtensionNode
           &&  move == ttMove
-          && !extension
-          &&  pos.legal(move))
+          && !extension)
       {
           Value rBeta = std::max(ttValue - 2 * depth / ONE_PLY, -VALUE_MATE);
           Depth d = (depth / (2 * ONE_PLY)) * ONE_PLY;
@@ -956,7 +958,7 @@ moves_loop: // When in check search starts from here
       prefetch(TT.first_entry(pos.key_after(move)));
 
       // Check for legality just before making the move
-      if (!rootNode && !pos.legal(move))
+      if (move != ttMove && !rootNode && !pos.legal(move))
       {
           ss->moveCount = --moveCount;
           continue;
@@ -1211,6 +1213,8 @@ moves_loop: // When in check search starts from here
     ttMove = ttHit ? ttData.move() : MOVE_NONE;
     ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
 
+    assert(ttMove == MOVE_NONE || (pos.pseudo_legal(ttMove) && pos.legal(ttMove)));
+
     if (ttHit && ttData.depth() >= ttDepth
             && ((!PvNode && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
                     : (ttData.bound() & BOUND_UPPER)))
@@ -1317,7 +1321,7 @@ moves_loop: // When in check search starts from here
       prefetch(TT.first_entry(pos.key_after(move)));
 
       // Check for legality just before making the move
-      if (!pos.legal(move))
+      if (move != ttMove && !pos.legal(move))
           continue;
 
       ss->currentMove = move;
