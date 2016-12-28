@@ -69,19 +69,19 @@ namespace {
   ExtMove* make_promotions(ExtMove* moveList, Square to, Square ksq) {
 
     if (Type == CAPTURES || Type == EVASIONS || Type == NON_EVASIONS)
-        *moveList++ = make<PROMOTION>(to - D, to, QUEEN);
+        *moveList++ = make<Q_PROMOTION>(to - D, to);
 
     if (Type == QUIETS || Type == EVASIONS || Type == NON_EVASIONS)
     {
-        *moveList++ = make<PROMOTION>(to - D, to, ROOK);
-        *moveList++ = make<PROMOTION>(to - D, to, BISHOP);
-        *moveList++ = make<PROMOTION>(to - D, to, KNIGHT);
+        *moveList++ = make<R_PROMOTION>(to - D, to);
+        *moveList++ = make<B_PROMOTION>(to - D, to);
+        *moveList++ = make<N_PROMOTION>(to - D, to);
     }
 
     // Knight promotion is the only promotion that can give a direct check
     // that's not already included in the queen promotion.
     if (Type == QUIET_CHECKS && (StepAttacksBB[W_KNIGHT][to] & ksq))
-        *moveList++ = make<PROMOTION>(to - D, to, KNIGHT);
+        *moveList++ = make<N_PROMOTION>(to - D, to);
     else
         (void)ksq; // Silence a warning under MSVC
 

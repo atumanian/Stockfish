@@ -633,11 +633,11 @@ namespace {
 
     // Check for an early TT cutoff
     if (ttHit && ttData.depth() >= depth
-            && (!PvNode && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
-                    : (ttData.bound() & BOUND_UPPER))
-            || PvNode && ss->ply >= 4
-                    && (ttData.bound() == BOUND_EXACT || ttValue >= beta && ttData.bound() == BOUND_LOWER
-                    || ttValue <= alpha && ttData.bound() == BOUND_UPPER)))
+            && ((!PvNode && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
+                    : (ttData.bound() & BOUND_UPPER)))
+            || (PvNode && ss->ply >= 4
+                    && (ttData.bound() == BOUND_EXACT || (ttValue >= beta && ttData.bound() == BOUND_LOWER)
+                    || (ttValue <= alpha && ttData.bound() == BOUND_UPPER)))))
       {
             assert(ttValue != VALUE_NONE);
         // If ttMove is quiet, update killers, history, counter move on TT hit
@@ -1212,10 +1212,10 @@ moves_loop: // When in check search starts from here
     ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
 
     if (ttHit && ttData.depth() >= ttDepth
-            && (!PvNode && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
-                    : (ttData.bound() & BOUND_UPPER))
-            || PvNode && (ttData.bound() == BOUND_EXACT || ttValue >= beta && ttData.bound() == BOUND_LOWER
-                    || ttValue <= alpha && ttData.bound() == BOUND_UPPER))) {
+            && ((!PvNode && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
+                    : (ttData.bound() & BOUND_UPPER)))
+            || (PvNode && (ttData.bound() == BOUND_EXACT || (ttValue >= beta && ttData.bound() == BOUND_LOWER)
+                    || (ttValue <= alpha && ttData.bound() == BOUND_UPPER))))) {
         assert(ttValue != VALUE_NONE);
         return ttValue;
     }
@@ -1309,7 +1309,7 @@ moves_loop: // When in check search starts from here
 
       // Don't search moves with negative SEE values
       if (  (!InCheck || evasionPrunable)
-          &&  type_of(move) != PROMOTION
+          &&  !is_promotion(move)
           &&  !pos.see_ge(move, VALUE_ZERO))
           continue;
 

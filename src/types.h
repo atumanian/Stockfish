@@ -122,9 +122,12 @@ enum Move : int {
 
 enum MoveType {
   NORMAL,
-  PROMOTION = 1 << 14,
-  ENPASSANT = 2 << 14,
-  CASTLING  = 3 << 14
+  ENPASSANT = 2 << 12,
+  CASTLING  = 3 << 12,
+  N_PROMOTION = 4 << 12,
+  B_PROMOTION = 5 << 12,
+  R_PROMOTION = 6 << 12,
+  Q_PROMOTION = 7 << 12
 };
 
 enum Color {
@@ -412,11 +415,16 @@ inline Square to_sq(Move m) {
 }
 
 inline MoveType type_of(Move m) {
-  return MoveType(m & (3 << 14));
+  return MoveType(m & (7 << 12));
+}
+
+inline bool is_promotion(Move m) {
+  return m & (1 << 14);
 }
 
 inline PieceType promotion_type(Move m) {
-  return PieceType(((m >> 12) & 3) + KNIGHT);
+  assert(is_promotion(m));
+  return PieceType((m >> 12) - 4 + KNIGHT);
 }
 
 inline Move make_move(Square from, Square to) {
@@ -424,8 +432,8 @@ inline Move make_move(Square from, Square to) {
 }
 
 template<MoveType T>
-inline Move make(Square from, Square to, PieceType pt = KNIGHT) {
-  return Move(T + ((pt - KNIGHT) << 12) + (from << 6) + to);
+inline Move make(Square from, Square to) {
+  return Move(T + (from << 6) + to);
 }
 
 inline bool is_ok(Move m) {

@@ -512,6 +512,7 @@ Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
 bool Position::legal(Move m) const {
 
   assert(is_ok(m));
+  assert(!(m & (1 << 15)));
 
   Color us = sideToMove;
   Square from = from_sq(m);
@@ -565,10 +566,6 @@ bool Position::pseudo_legal(const Move m) const {
   // Use a slower but simpler function for uncommon cases
   if (type_of(m) != NORMAL)
       return MoveList<LEGAL>(*this).contains(m);
-
-  // Is not a promotion, so promotion piece must be empty
-  if (promotion_type(m) - KNIGHT != NO_PIECE_TYPE)
-      return false;
 
   // If the 'from' square is not occupied by a piece belonging to the side to
   // move, the move is obviously not legal.
@@ -647,9 +644,6 @@ bool Position::gives_check(Move m) const {
   case NORMAL:
       return false;
 
-  case PROMOTION:
-      return attacks_bb(Piece(promotion_type(m)), to, pieces() ^ from) & square<KING>(~sideToMove);
-
   // En passant capture with check? We have already handled the case
   // of direct checks and ordinary discovered check, so the only case we
   // need to handle is the unusual case of a discovered check through
@@ -672,9 +666,8 @@ bool Position::gives_check(Move m) const {
       return   (PseudoAttacks[ROOK][rto] & square<KING>(~sideToMove))
             && (attacks_bb<ROOK>(rto, (pieces() ^ kfrom ^ rfrom) | rto | kto) & square<KING>(~sideToMove));
   }
-  default:
-      assert(false);
-      return false;
+  default: // promotion
+      return attacks_bb(Piece(promotion_type(m)), to, pieces() ^ from) & square<KING>(~sideToMove);
   }
 }
 
@@ -802,7 +795,7 @@ void Position::do_move(Move m, StateInfo& newSt, bool givesCheck) {
           k ^= Zobrist::enpassant[file_of(st->epSquare)];
       }
 
-      else if (type_of(m) == PROMOTION)
+      else if (is_promotion(m))
       {
           Piece promotion = make_piece(us, promotion_type(m));
 
@@ -871,7 +864,7 @@ void Position::undo_move(Move m) {
   assert(empty(from) || type_of(m) == CASTLING);
   assert(type_of(st->capturedPiece) != KING);
 
-  if (type_of(m) == PROMOTION)
+  if (is_promotion(m))
   {
       assert(relative_rank(us, to) == RANK_8);
       assert(type_of(pc) == promotion_type(m));
