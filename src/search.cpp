@@ -631,6 +631,8 @@ namespace {
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->PVIdx].pv[0]
             : ttHit    ? ttData.move() : MOVE_NONE;
 
+    assert(ttMove == MOVE_NONE || (pos.pseudo_legal(ttMove) && pos.legal(ttMove)));
+
     // At non-PV nodes we check for an early TT cutoff
     if (  !PvNode
         && ttHit
@@ -891,8 +893,7 @@ moves_loop: // When in check search starts from here
       // ttValue minus a margin then we extend the ttMove.
       if (    singularExtensionNode
           &&  move == ttMove
-          && !extension
-          &&  pos.legal(move))
+          && !extension)
       {
           Value rBeta = std::max(ttValue - 2 * depth / ONE_PLY, -VALUE_MATE);
           Depth d = (depth / (2 * ONE_PLY)) * ONE_PLY;
@@ -1204,6 +1205,8 @@ moves_loop: // When in check search starts from here
     tte = TT.probe(posKey, ttData, ttHit);
     ttMove = ttHit ? ttData.move() : MOVE_NONE;
     ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
+
+    assert(ttMove == MOVE_NONE || (pos.pseudo_legal(ttMove) && pos.legal(ttMove)));
 
     if (  !PvNode
         && ttHit

@@ -70,12 +70,13 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, Search::Stack* s)
            : pos(p), ss(s), depth(d) {
 
   assert(d > DEPTH_ZERO);
+  assert(ttm == MOVE_NONE || pos.pseudo_legal(ttm));
 
   Square prevSq = to_sq((ss-1)->currentMove);
   countermove = pos.this_thread()->counterMoves[pos.piece_on(prevSq)][prevSq];
 
   stage = pos.checkers() ? EVASION : MAIN_SEARCH;
-  ttMove = ttm && pos.pseudo_legal(ttm) ? ttm : MOVE_NONE;
+  ttMove = ttm;
   stage += (ttMove == MOVE_NONE);
 }
 
@@ -83,6 +84,7 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, Square s)
            : pos(p) {
 
   assert(d <= DEPTH_ZERO);
+  assert(ttm == MOVE_NONE || pos.pseudo_legal(ttm));
 
   if (pos.checkers())
       stage = EVASION;
@@ -100,7 +102,7 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, Square s)
       return;
   }
 
-  ttMove = ttm && pos.pseudo_legal(ttm) ? ttm : MOVE_NONE;
+  ttMove = ttm;
   stage += (ttMove == MOVE_NONE);
 }
 
@@ -108,12 +110,12 @@ MovePicker::MovePicker(const Position& p, Move ttm, Value th)
            : pos(p), threshold(th) {
 
   assert(!pos.checkers());
+  assert(ttm == MOVE_NONE || pos.pseudo_legal(ttm));
 
   stage = PROBCUT;
 
   // In ProbCut we generate captures with SEE higher than or equal to the given threshold
   ttMove =   ttm
-          && pos.pseudo_legal(ttm)
           && pos.capture(ttm)
           && pos.see_ge(ttm, threshold)? ttm : MOVE_NONE;
 
