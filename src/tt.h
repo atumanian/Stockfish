@@ -46,7 +46,11 @@ struct TTEntry {
     explicit operator int() { return data; }
     Bound bound() const { return Bound(data & 0x300); }
     Key operator^(Key keyXorData) const { return data ^ keyXorData; }
-    void operator=(uint64_t d) { data = d; }
+    Data() = default;
+    Data(Value ev, uint16_t g) {
+      data = uint64_t(VALUE_NONE) << 48 | uint64_t(MOVE_NONE) << 32 | BOUND_NONE | uint8_t(DEPTH_NONE)
+              | uint32_t(ev << 16) | g;
+    }
     void setGeneration(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
     void set(Move m, Value v, bool z, Value ev, Depth d, uint16_t g, Bound b) {
         data = uint64_t(v << 16 | z << 15 | m) << 32 | uint32_t(ev << 16 | g | b | uint8_t(d));
@@ -75,6 +79,9 @@ struct TTEntry {
         else rdata.set(v, z, ev, d, g, b);
         write(k, rdata);
     }
+  }
+  void save_eval(Key k, Value ev, uint16_t g) {
+    write(k, Data(ev, g));
   }
 
 private:
