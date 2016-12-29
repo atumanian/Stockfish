@@ -67,10 +67,7 @@ struct TTEntry {
     read(key, rdata);
 
     // Don't overwrite more valuable entries
-    if (  k != key || z || !rdata.is_zero_pos()
-        || d / ONE_PLY > rdata.depth() - 4
-     /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
-        || b == BOUND_EXACT)
+    if (k != key || rdata.depth() + 16 * rdata.is_zero_pos() < d + 16 * z);
     {
         // Preserve any existing move for the same position
         if (m || k != key)
