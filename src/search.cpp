@@ -713,8 +713,7 @@ namespace {
         (ss-1)->currentMove != MOVE_NULL ? evaluate(pos)
                                          : -(ss-1)->staticEval + 2 * Eval::Tempo;
 
-        tte->save(posKey, VALUE_NONE, BOUND_NONE, DEPTH_NONE, MOVE_NONE,
-                  ss->staticEval, TT.generation());
+        tte->save_eval(posKey, ss->staticEval, TT.generation());
     }
 
     if (skipEarlyPruning)
