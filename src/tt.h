@@ -37,7 +37,8 @@
 struct TTEntry {
 
   struct Data {
-    Move  move()  const { return Move(uint16_t(data >> 32)); }
+    bool is_zero_pos() const { return data & (uint64_t(1) << 47); }
+    Move  move()  const { return Move((data >> 32) & 0x7FFF); }
     Value value() const { return Value(int64_t(data) >> 48); }
     Value eval()  const { return Value(int32_t(data) >> 16); }
     Depth depth() const { return Depth(int8_t(data) * int(ONE_PLY)); }
@@ -47,18 +48,18 @@ struct TTEntry {
     Key operator^(Key keyXorData) const { return data ^ keyXorData; }
     void operator=(uint64_t d) { data = d; }
     void setGeneration(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
-    void set(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
-        data = uint64_t(v << 16 | m) << 32 | uint32_t(ev << 16 | g | b | uint8_t(d));
+    void set(Move m, Value v, bool z, Value ev, Depth d, uint16_t g, Bound b) {
+        data = uint64_t(v << 16 | z << 15 | m) << 32 | uint32_t(ev << 16 | g | b | uint8_t(d));
     }
-    void set(Value v, Value ev, Depth d, uint16_t g, Bound b) {
-        data = (data & 0xFFFF00000000) | uint64_t(v) << 48 | uint32_t(ev << 16 | g | b | uint8_t(d));
+    void set(Value v, bool z, Value ev, Depth d, uint16_t g, Bound b) {
+        data = (data & 0x7FFF00000000) | uint64_t(v) << 48 | uint64_t(z) << 47 | uint32_t(ev << 16 | g | b | uint8_t(d));
     }
 
   private:
     uint64_t data;
   };
 
-  void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
+  void save(Key k, Value v, bool z, Bound b, Depth d, Move m, Value ev, uint16_t g) {
 
     assert(d / ONE_PLY * ONE_PLY == d);
     Data rdata;
@@ -66,15 +67,15 @@ struct TTEntry {
     read(key, rdata);
 
     // Don't overwrite more valuable entries
-    if (  k != key
+    if (  k != key || z || !rdata.is_zero_pos()
         || d / ONE_PLY > rdata.depth() - 4
      /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
         || b == BOUND_EXACT)
     {
         // Preserve any existing move for the same position
         if (m || k != key)
-          rdata.set(m, v, ev, d, g, b);
-        else rdata.set(v, ev, d, g, b);
+          rdata.set(m, v, z, ev, d, g, b);
+        else rdata.set(v, z, ev, d, g, b);
         write(k, rdata);
     }
   }

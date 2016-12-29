@@ -151,6 +151,7 @@ public:
   Thread* this_thread() const;
   uint64_t nodes_searched() const;
   bool is_draw() const;
+  bool is_zero() const;
   int rule50_count() const;
   Score psq_score() const;
   Value non_pawn_material(Color c) const;
@@ -332,6 +333,10 @@ inline Value Position::non_pawn_material(Color c) const {
 
 inline int Position::game_ply() const {
   return gamePly;
+}
+
+inline bool Position::is_zero() const {
+  return !st->rule50;
 }
 
 inline int Position::rule50_count() const {
