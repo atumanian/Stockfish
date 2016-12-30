@@ -1258,7 +1258,7 @@ moves_loop: // When in check search starts from here
         {
             if (!ttHit)
                 tte->save(pos.key(), value_to_tt(bestValue, ss->ply), zeroPos, BOUND_LOWER,
-                          DEPTH_NONE, MOVE_NONE, ss->staticEval, TT.generation());
+                          ttDepth, MOVE_NONE, ss->staticEval, TT.generation());
 
             return bestValue;
         }

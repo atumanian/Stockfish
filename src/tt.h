@@ -56,7 +56,8 @@ struct TTEntry {
         data = uint64_t(v << 16 | z << 15 | m) << 32 | uint32_t(ev << 16 | g | b | uint8_t(d));
     }
     void set(Value v, bool z, Value ev, Depth d, uint16_t g, Bound b) {
-        data = (data & 0x7FFF00000000) | uint64_t(v) << 48 | uint64_t(z) << 47 | uint32_t(ev << 16 | g | b | uint8_t(d));
+        data = (data & 0x7FFF00000000) | uint64_t(v) << 48 | uint64_t(z) << 47
+                | uint32_t(ev << 16 | g | b | uint8_t(d));
     }
 
   private:
@@ -70,15 +71,12 @@ struct TTEntry {
     Key key;
     read(key, rdata);
 
-    // Don't overwrite more valuable entries
-    if (k != key || rdata.depth() + 16 * rdata.is_zero_pos() < d + 16 * z);
-    {
-        // Preserve any existing move for the same position
-        if (m || k != key)
-          rdata.set(m, v, z, ev, d, g, b);
-        else rdata.set(v, z, ev, d, g, b);
-        write(k, rdata);
-    }
+    // Preserve any existing move for the same position
+    if (m || k != key)
+      rdata.set(m, v, z, ev, d, g, b);
+    else rdata.set(v, z, ev, d, g, b);
+
+    write(k, rdata);
   }
   void save_eval(Key k, Value ev, uint16_t g) {
     write(k, Data(ev, g));
