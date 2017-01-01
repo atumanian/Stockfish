@@ -1100,7 +1100,7 @@ bool Position::is_draw(int ply) const {
       // repeats once earlier but after or at the root, or repeats twice
       // strictly before the root.
       if (   stp->key == st->key
-          && ++cnt + (ply - i >= 0) == 2)
+          && ++cnt + (ply - 1 > i) == 2)
           return true;
   }
 
