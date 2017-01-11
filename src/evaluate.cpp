@@ -2,7 +2,7 @@
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
   Copyright (C) 2004-2008 Tord Romstad (Glaurung author)
   Copyright (C) 2008-2015 Marco Costalba, Joona Kiiski, Tord Romstad
-  Copyright (C) 2015-2016 Marco Costalba, Joona Kiiski, Gary Linscott, Tord Romstad
+  Copyright (C) 2015-2017 Marco Costalba, Joona Kiiski, Gary Linscott, Tord Romstad
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -672,8 +672,8 @@ namespace {
                 mbonus += rr + r * 2, ebonus += rr + r * 2;
         } // rr != 0
 
-        // Assign a small bonus when no pieces left (unstoppable)
-        if (!pos.non_pawn_material(Us) && !pos.non_pawn_material(Them))
+        // Assign a small bonus when the opponent has no pieces left
+        if (!pos.non_pawn_material(Them))
             ebonus += 20;
 
         score += make_score(mbonus, ebonus) + PassedFile[file_of(s)];
