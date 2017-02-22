@@ -44,7 +44,7 @@ namespace {
   Score Connected[2][2][2][RANK_NB];
 
   // Doubled pawn penalty
-  const Score Doubled = S(18,38);
+  const Score Doubled = S(18, 38);
 
   // Lever bonus by rank
   const Score Lever[RANK_NB] = {
@@ -53,7 +53,7 @@ namespace {
   };
 
   // Weakness of our pawn shelter in front of the king by [distance from edge][rank].
-  // RANK_1 = 0 is used for files where we have no pawns, or where our pawn is behind our king.
+  // RANK_1 = 0 is used for files where we have no pawns or our pawn is behind our king.
   const Value ShelterWeakness[][RANK_NB] = {
     { V(100), V(20), V(10), V(46), V(82), V( 86), V( 98) },
     { V(116), V( 4), V(28), V(87), V(94), V(108), V(104) },
@@ -63,7 +63,7 @@ namespace {
 
   // Danger of enemy pawns moving toward our king by [type][distance from edge][rank].
   // For the unopposed and unblocked cases, RANK_1 = 0 is used when opponent has no pawn
-  // on the given file, or his pawn his behind our king.
+  // on the given file, or their pawn is behind our king.
   const Value StormDanger[][4][RANK_NB] = {
     { { V( 0),  V(-290), V(-274), V(57), V(41) },  //BlockedByKing
       { V( 0),  V(  60), V( 144), V(39), V(13) },
@@ -99,8 +99,9 @@ namespace {
     const Square Left  = (Us == WHITE ? NORTH_WEST : SOUTH_EAST);
 
     Bitboard b, neighbours, stoppers, doubled, supported, phalanx;
+    Bitboard lever, leverPush, connected;
     Square s;
-    bool opposed, lever, connected, backward;
+    bool opposed, backward;
     Score score = SCORE_ZERO;
     const Square* pl = pos.squares<PAWN>(Us);
     const Bitboard* pawnAttacksBB = StepAttacksBB[make_piece(Us, PAWN)];
@@ -129,6 +130,7 @@ namespace {
         opposed    = theirPawns & forward_bb(Us, s);
         stoppers   = theirPawns & passed_pawn_mask(Us, s);
         lever      = theirPawns & pawnAttacksBB[s];
+        leverPush  = theirPawns & pawnAttacksBB[s + Up];
         doubled    = ourPawns   & (s + Up);
         neighbours = ourPawns   & adjacent_files_bb(f);
         phalanx    = neighbours & rank_bb(s);
@@ -153,8 +155,13 @@ namespace {
         }
 
         // Passed pawns will be properly scored in evaluation because we need
-        // full attack info to evaluate them.
-        if (!stoppers && !(ourPawns & forward_bb(Us, s)))
+        // full attack info to evaluate them. Include also not passed pawns
+        // which could become passed after one or two pawn pushes when are
+        // not attacked more times than defended.
+        if (   !(stoppers ^ lever ^ leverPush)
+            && !(ourPawns & forward_bb(Us, s))
+            && popcount(supported) >= popcount(lever)
+            && popcount(phalanx)   >= popcount(leverPush))
             e->passedPawns[Us] |= s;
 
         // Score this pawn
