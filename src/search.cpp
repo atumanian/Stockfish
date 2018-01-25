@@ -192,15 +192,16 @@ void MainThread::search() {
   Time.init(Limits, us, rootPos.game_ply());
   TT.new_search();
 
-  // Use the contempt setting only for playing, not for analysis
-  if (Limits.use_time_management()) {
-      int contempt = Options["Contempt"] * PawnValueEg / 100; // From centipawns
-
-      Eval::Contempt = (us == WHITE ?  make_score(contempt, contempt / 2)
-                                    : -make_score(contempt, contempt / 2));
-  }
-  else
+  if (!Limits.use_time_management() && !Options["Analysis Contempt"])
       Eval::Contempt = SCORE_ZERO;
+  else {
+      // In the analysis mode when the "Analysis Contempt" option is checked
+      // the "Contempt" option is applied from white's perspective.
+      // In the playing mode it is applied from the perspective of the side to move.
+      int contempt = (!Limits.use_time_management() || us == WHITE ?
+                      int(Options["Contempt"]) : -Options["Contempt"]) * PawnValueEg / 100; // From centipawns
+      Eval::Contempt = make_score(contempt, contempt / 2);
+  }
 
   if (rootMoves.empty())
   {
