@@ -90,8 +90,8 @@ void TimeManagement::init(Search::LimitsType& limits, Color us, int ply) {
 
   if (total == 0)
       total = limits.time[us] / 2;
-  else limits.time[us] -= total;
 
+  limits.time[us] -= total;
   limits.inc[us] /= 2;
   limits.time[us] -= limits.inc[us] * movesPlayed;
   movesPlayed++;
