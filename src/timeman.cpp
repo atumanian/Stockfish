@@ -88,6 +88,14 @@ void TimeManagement::init(Search::LimitsType& limits, Color us, int ply) {
   int slowMover       = Options["Slow Mover"];
   int npmsec          = Options["nodestime"];
 
+  if (total == 0)
+      total = limits.time[us] / 2;
+  else limits.time[us] -= total;
+
+  limits.inc[us] /= 2;
+  limits.time[us] -= limits.inc[us] * movesPlayed;
+  movesPlayed++;
+
   // If we have to play in 'nodes as time' mode, then convert from time
   // to nodes, and use resulting values in time management formulas.
   // WARNING: Given npms (nodes per millisecond) must be much lower then

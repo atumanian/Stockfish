@@ -173,6 +173,8 @@ void Search::clear() {
   Time.availableNodes = 0;
   TT.clear();
   Threads.clear();
+
+  Time.total = Time.movesPlayed = 0;
 }
 
 

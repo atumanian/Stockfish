@@ -35,7 +35,8 @@ public:
   int maximum() const { return maximumTime; }
   int elapsed() const { return int(Search::Limits.npmsec ? Threads.nodes_searched() : now() - startTime); }
 
-  int64_t availableNodes; // When in 'nodes as time' mode
+  int64_t availableNodes; // When in 'nodes as time'
+  int total, movesPlayed;
 
 private:
   TimePoint startTime;
