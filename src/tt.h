@@ -63,6 +63,7 @@ public:
     Key16 decrypt(Key16 key) const { return key; }
     void operator=(uint64_t d) { data = d; }
     void setGeneration(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
+    void setMove(Move m) { data = (data & 0xFFFF0000FFFFFFFF) | uint64_t(m) << 32; }
     void set(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
         data = uint64_t(v << 16 | m) << 32 | uint32_t(ev << 16 | g | b | uint8_t(d));
     }
@@ -92,18 +93,17 @@ public:
       Key16 key = k >> 48, rkey;
       read(rkey, rdata);
 
-      // Don't overwrite more valuable entries
-      if (  key != rkey
-        || d / ONE_PLY > rdata.depth() - 4
-       /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
-        || b == BOUND_EXACT)
-      {
-        // Preserve any existing move for the same position
-        if (m || key != rkey)
-          rdata.set(m, v, ev, d, g, b);
-        else rdata.set(v, ev, d, g, b);
-        write(key, rdata);
-      }
+      if (key != rkey)
+        rdata.set(m, v, ev, d, g, b);
+      else if (d / ONE_PLY > rdata.depth() - 4
+            /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
+               || b == BOUND_EXACT)
+        m ? rdata.set(m, v, ev, d, g, b) : rdata.set(v, ev, d, g, b);
+      else if (m)
+        rdata.setMove(m);
+      else return;
+
+      write(key, rdata);
     }
 
     void read(Key16& rkey, Data& rdata) const {
