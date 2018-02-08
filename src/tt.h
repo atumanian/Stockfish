@@ -80,11 +80,11 @@ public:
     Data data[ClusterSize];
   };
 
-  struct Pointer {
+  struct Reference {
 
-    Pointer() = default;
+    Reference() = default;
 
-    Pointer(Cluster* cluster, int i) : key16(&(cluster->key16[i])), data(&cluster->data[i]) {};
+    Reference(Cluster* cl, int i) : cluster(cl), index(i) {};
 
     void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
 
@@ -107,16 +107,16 @@ public:
     }
 
     void read(Key16& rkey, Data& rdata) const {
-      rdata = *data;
-      rkey = rdata.decrypt(*key16);
+      rdata = cluster->data[index];
+      rkey = rdata.decrypt(cluster->key16[index]);
     }
     void write(Key16 rkey, Data rdata) {
-      *data = rdata;
-      *key16 = rdata.encrypt(rkey);
+      cluster->data[index] = rdata;
+      cluster->key16[index] = rdata.encrypt(rkey);
     }
   private:
-    Key16 *key16;
-    Data *data;
+    Cluster *cluster;
+    int index;
   };
 
   static_assert(CacheLineSize % sizeof(Cluster) == 0, "Cluster size incorrect");
@@ -125,7 +125,7 @@ public:
  ~TranspositionTable() { free(mem); }
   void new_search() { generation8 += 1024; } // Lower 2 bits are used by Bound
   uint16_t generation() const { return generation8; }
-  Pointer probe(const Key key, Data& ttData, bool& found) const;
+  Reference probe(const Key key, Data& ttData, bool& found) const;
   int hashfull() const;
   void resize(size_t mbSize);
   void clear();

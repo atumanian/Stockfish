@@ -73,23 +73,23 @@ void TranspositionTable::clear() {
 /// minus 8 times its relative age. TTEntry t1 is considered more valuable than
 /// TTEntry t2 if its replace value is greater than that of t2.
 
-TranspositionTable::Pointer TranspositionTable::probe(const Key k, Data& ttData, bool& found) const {
+TranspositionTable::Reference TranspositionTable::probe(const Key k, Data& ttData, bool& found) const {
   Cluster *cluster = first_entry(k);
   Key16 key = k >> 48;
 
   for (int i = 0; i < ClusterSize; ++i) {
       if (!cluster->key16[i]) {
-        return found = false, Pointer(cluster, i);
+        return found = false, Reference(cluster, i);
       }
       Data rdata;
       Key16 rkey;
-      Pointer(cluster, i).read(rkey, rdata);
+      Reference(cluster, i).read(rkey, rdata);
       if (key == rkey) {
         if (rdata.generation() != generation8) {
              rdata.setGeneration(generation8);
              cluster->data[i] = rdata;
         }
-        return found = true, ttData = rdata, Pointer(cluster, i);
+        return found = true, ttData = rdata, Reference(cluster, i);
       }
   }
 
@@ -108,7 +108,7 @@ TranspositionTable::Pointer TranspositionTable::probe(const Key k, Data& ttData,
           replace = i;
       }
   }
-  return found = false, Pointer(cluster, replace);
+  return found = false, Reference(cluster, replace);
 }
 
 

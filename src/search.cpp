@@ -495,7 +495,7 @@ namespace {
 
     Move pv[MAX_PLY+1], capturesSearched[32], quietsSearched[64];
     StateInfo st;
-    TranspositionTable::Pointer tte;
+    TranspositionTable::Reference tte;
     TranspositionTable::Data ttData;
     Key posKey;
     Move ttMove, move, excludedMove, bestMove;
@@ -1141,7 +1141,7 @@ moves_loop: // When in check search starts from here
 
     Move pv[MAX_PLY+1];
     StateInfo st;
-    TranspositionTable::Pointer tte;
+    TranspositionTable::Reference tte;
     TranspositionTable::Data ttData;
     Key posKey;
     Move ttMove, move, bestMove;
