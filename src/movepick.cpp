@@ -71,10 +71,9 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHist
              killers{killers_p[0], killers_p[1]}, depth(d){
 
   assert(d > DEPTH_ZERO);
-  assert(ttm == MOVE_NONE || pos.pseudo_legal(ttm));
 
   stage = pos.checkers() ? EVASION : MAIN_SEARCH;
-  ttMove = ttm;
+  ttMove = ttm && pos.pseudo_legal(ttm) ? ttm : MOVE_NONE;
   stage += (ttMove == MOVE_NONE);
 }
 
@@ -83,7 +82,6 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHist
            : pos(p), mainHistory(mh), captureHistory(cph), depth(d) {
 
   assert(d <= DEPTH_ZERO);
-  assert(ttm == MOVE_NONE || pos.pseudo_legal(ttm));
 
   if (pos.checkers())
       stage = EVASION;
@@ -98,7 +96,7 @@ MovePicker::MovePicker(const Position& p, Move ttm, Depth d, const ButterflyHist
       return;
   }
 
-  ttMove = ttm;
+  ttMove = ttm && pos.pseudo_legal(ttm) ? ttm : MOVE_NONE;
   stage += (ttMove == MOVE_NONE);
 }
 
@@ -108,10 +106,10 @@ MovePicker::MovePicker(const Position& p, Move ttm, Value th, const CapturePiece
            : pos(p), captureHistory(cph), threshold(th) {
 
   assert(!pos.checkers());
-  assert(ttm == MOVE_NONE || pos.pseudo_legal(ttm));
 
   stage = PROBCUT;
   ttMove =   ttm
+          && pos.pseudo_legal(ttm)
           && pos.capture(ttm)
           && pos.see_ge(ttm, threshold) ? ttm : MOVE_NONE;
 

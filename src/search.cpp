@@ -558,13 +558,11 @@ namespace {
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->PVIdx].pv[0]
             : ttHit    ? ttData.move() : MOVE_NONE;
 
-    assert(ttMove == MOVE_NONE || (pos.pseudo_legal(ttMove) && pos.legal(ttMove)));
-
     // At non-PV nodes we check for an early TT cutoff
     if (  !PvNode
         && ttHit
         && ttData.depth() >= depth
-        //&& ttValue != VALUE_NONE // Possible in case of TT access race
+        && ttValue != VALUE_NONE // Possible in case of TT access race
         && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
                             : (ttData.bound() & BOUND_UPPER)))
     {
@@ -648,11 +646,8 @@ namespace {
     else if (ttHit)
     {
         // Never assume anything on values stored in TT
-        /*if ((ss->staticEval = eval = ttData.eval()) == VALUE_NONE)
-            eval = ss->staticEval = evaluate(pos);*/
-        ss->staticEval = eval = ttData.eval();
-
-        assert(eval != VALUE_NONE);
+        if ((ss->staticEval = eval = ttData.eval()) == VALUE_NONE)
+            eval = ss->staticEval = evaluate(pos);
 
         // Can ttValue be used as a better position evaluation?
         if (   ttValue != VALUE_NONE
@@ -751,7 +746,7 @@ namespace {
         MovePicker mp(pos, ttMove, rbeta - ss->staticEval, &thisThread->captureHistory);
 
         while ((move = mp.next_move()) != MOVE_NONE)
-            if (move == ttMove || pos.legal(move))
+            if (pos.legal(move))
             {
                 ss->currentMove = move;
                 ss->contHistory = &thisThread->contHistory[pos.moved_piece(move)][to_sq(move)];
@@ -846,7 +841,8 @@ moves_loop: // When in check search starts from here
       // on all the other moves but the ttMove and if the result is lower than
       // ttValue minus a margin then we will extend the ttMove.
       if (    singularExtensionNode
-          &&  move == ttMove)
+          &&  move == ttMove
+          &&  pos.legal(move))
       {
           Value rBeta = std::max(ttValue - 2 * depth / ONE_PLY, -VALUE_MATE);
           Depth d = (depth / (2 * ONE_PLY)) * ONE_PLY;
@@ -911,7 +907,7 @@ moves_loop: // When in check search starts from here
       prefetch(TT.first_entry(pos.key_after(move)));
 
       // Check for legality just before making the move
-      if (move != ttMove && !rootNode && !pos.legal(move))
+      if (!rootNode && !pos.legal(move))
       {
           ss->moveCount = --moveCount;
           continue;
@@ -1182,12 +1178,10 @@ moves_loop: // When in check search starts from here
     ttMove = ttHit ? ttData.move() : MOVE_NONE;
     ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
 
-    assert(ttMove == MOVE_NONE || (pos.pseudo_legal(ttMove) && pos.legal(ttMove)));
-
     if (  !PvNode
         && ttHit
         && ttData.depth() >= ttDepth
-        //&& ttValue != VALUE_NONE // Only in case of TT access race
+        && ttValue != VALUE_NONE // Only in case of TT access race
         && (ttValue >= beta ? (ttData.bound() &  BOUND_LOWER)
                             : (ttData.bound() &  BOUND_UPPER)))
         return ttValue;
@@ -1203,12 +1197,8 @@ moves_loop: // When in check search starts from here
         if (ttHit)
         {
             // Never assume anything on values stored in TT
-            /*if ((ss->staticEval = bestValue = ttData.eval()) == VALUE_NONE)
-                ss->staticEval = bestValue = evaluate(pos);*/
-
-            ss->staticEval = bestValue = ttData.eval();
-
-            assert(bestValue != VALUE_NONE);
+            if ((ss->staticEval = bestValue = ttData.eval()) == VALUE_NONE)
+                ss->staticEval = bestValue = evaluate(pos);
 
             // Can ttValue be used as a better position evaluation?
             if (   ttValue != VALUE_NONE
@@ -1291,7 +1281,7 @@ moves_loop: // When in check search starts from here
       prefetch(TT.first_entry(pos.key_after(move)));
 
       // Check for legality just before making the move
-      if (move != ttMove && !pos.legal(move))
+      if (!pos.legal(move))
       {
           moveCount--;
           continue;
