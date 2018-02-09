@@ -73,23 +73,22 @@ void TranspositionTable::clear() {
 /// minus 8 times its relative age. TTEntry t1 is considered more valuable than
 /// TTEntry t2 if its replace value is greater than that of t2.
 
-TranspositionTable::Reference TranspositionTable::probe(const Key k, Data& ttData, bool& found) const {
-  Cluster *cluster = first_entry(k);
+int TranspositionTable::Cluster::probe(Key k, Data& ttData, bool& found, uint16_t g) {
   Key16 key = k >> 48;
 
   for (int i = 0; i < ClusterSize; ++i) {
-      if (!cluster->key16[i]) {
-        return found = false, Reference(cluster, i);
-      }
       Data rdata;
       Key16 rkey;
-      Reference(cluster, i).read(rkey, rdata);
+      read(i, rkey, rdata);
+      if (!rkey) {
+        return found = false, i;
+      }
       if (key == rkey) {
-        if (rdata.generation() != generation8) {
-             rdata.setGeneration(generation8);
-             cluster->data[i] = rdata;
+        if (rdata.generation() != g) {
+             rdata.setGeneration(g);
+             data[i] = rdata;
         }
-        return found = true, ttData = rdata, Reference(cluster, i);
+        return found = true, ttData = rdata, i;
       }
   }
 
@@ -100,15 +99,15 @@ TranspositionTable::Reference TranspositionTable::probe(const Key k, Data& ttDat
   // two bound bits from affecting the result) to calculate the entry
   // age correctly even after generation8 overflows into the next cycle.
   //int genPlus1024 = generation8 + 0x400;
-  int entryValue = cluster->data[0].depth() - (((0x103FF + generation8 - int(cluster->data[0])) & 0xFC00) >> 7);
+  int entryValue = data[0].depth() - (((0x103FF + g - int(data[0])) & 0xFC00) >> 7);
   for (int i = 1; i < ClusterSize; ++i) {
-      int newValue = cluster->data[i].depth() - (((0x103FF + generation8 - int(cluster->data[i])) & 0xFC00) >> 7);
+      int newValue = data[i].depth() - (((0x103FF + g - int(data[i])) & 0xFC00) >> 7);
       if (entryValue > newValue) {
           entryValue = newValue;
           replace = i;
       }
   }
-  return found = false, Reference(cluster, replace);
+  return found = false, replace;
 }
 
 

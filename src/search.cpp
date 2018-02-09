@@ -495,7 +495,7 @@ namespace {
 
     Move pv[MAX_PLY+1], capturesSearched[32], quietsSearched[64];
     StateInfo st;
-    TranspositionTable::Reference tte;
+    int ttIndex;
     TranspositionTable::Data ttData;
     Key posKey;
     Move ttMove, move, excludedMove, bestMove;
@@ -553,7 +553,7 @@ namespace {
     // position key in case of an excluded move.
     excludedMove = ss->excludedMove;
     posKey = pos.key() ^ Key(excludedMove << 16);
-    tte = TT.probe(posKey, ttData, ttHit);
+    ttIndex = TT.probe(posKey, ttData, ttHit);
     ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->PVIdx].pv[0]
             : ttHit    ? ttData.move() : MOVE_NONE;
@@ -618,9 +618,9 @@ namespace {
                 if (    b == BOUND_EXACT
                     || (b == BOUND_LOWER ? value >= beta : value <= alpha))
                 {
-                    tte.save(posKey, value_to_tt(value, ss->ply), b,
+                    TT.save(ttIndex, posKey, value_to_tt(value, ss->ply), b,
                               std::min(DEPTH_MAX - ONE_PLY, depth + 6 * ONE_PLY),
-                              MOVE_NONE, VALUE_NONE, TT.generation());
+                              MOVE_NONE, VALUE_NONE);
 
                     return value;
                 }
@@ -660,8 +660,8 @@ namespace {
         (ss-1)->currentMove != MOVE_NULL ? evaluate(pos)
                                          : -(ss-1)->staticEval + 2 * Eval::Tempo;
 
-        tte.save(posKey, VALUE_NONE, BOUND_NONE, DEPTH_NONE, MOVE_NONE,
-                  ss->staticEval, TT.generation());
+        TT.save(ttIndex, posKey, VALUE_NONE, BOUND_NONE, DEPTH_NONE, MOVE_NONE,
+                  ss->staticEval);
     }
 
     if (skipEarlyPruning || !pos.non_pawn_material(pos.side_to_move()))
@@ -768,7 +768,7 @@ namespace {
         Depth d = (3 * depth / (4 * ONE_PLY) - 2) * ONE_PLY;
         search<NT>(pos, ss, alpha, beta, d, cutNode, true);
 
-        tte = TT.probe(posKey, ttData, ttHit);
+        ttIndex = TT.probe(posKey, ttData, ttHit);
         ttMove = ttHit ? ttData.move() : MOVE_NONE;
     }
 
@@ -1114,10 +1114,10 @@ moves_loop: // When in check search starts from here
         bestValue = std::min(bestValue, maxValue);
 
     if (!excludedMove)
-        tte.save(posKey, value_to_tt(bestValue, ss->ply),
+        TT.save(ttIndex, posKey, value_to_tt(bestValue, ss->ply),
                   bestValue >= beta ? BOUND_LOWER :
                   PvNode && bestMove ? BOUND_EXACT : BOUND_UPPER,
-                  depth, bestMove, ss->staticEval, TT.generation());
+                  depth, bestMove, ss->staticEval);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
@@ -1141,7 +1141,7 @@ moves_loop: // When in check search starts from here
 
     Move pv[MAX_PLY+1];
     StateInfo st;
-    TranspositionTable::Reference tte;
+    int ttIndex;
     TranspositionTable::Data ttData;
     Key posKey;
     Move ttMove, move, bestMove;
@@ -1174,7 +1174,7 @@ moves_loop: // When in check search starts from here
                                                   : DEPTH_QS_NO_CHECKS;
     // Transposition table lookup
     posKey = pos.key();
-    tte = TT.probe(posKey, ttData, ttHit);
+    ttIndex = TT.probe(posKey, ttData, ttHit);
     ttMove = ttHit ? ttData.move() : MOVE_NONE;
     ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
 
@@ -1214,8 +1214,8 @@ moves_loop: // When in check search starts from here
         if (bestValue >= beta)
         {
             if (!ttHit)
-                tte.save(posKey, value_to_tt(bestValue, ss->ply), BOUND_LOWER,
-                          DEPTH_NONE, MOVE_NONE, ss->staticEval, TT.generation());
+                TT.save(ttIndex, posKey, value_to_tt(bestValue, ss->ply), BOUND_LOWER,
+                          DEPTH_NONE, MOVE_NONE, ss->staticEval);
 
             return bestValue;
         }
@@ -1314,8 +1314,8 @@ moves_loop: // When in check search starts from here
               }
               else // Fail high
               {
-                  tte.save(posKey, value_to_tt(value, ss->ply), BOUND_LOWER,
-                            ttDepth, move, ss->staticEval, TT.generation());
+                  TT.save(ttIndex, posKey, value_to_tt(value, ss->ply), BOUND_LOWER,
+                            ttDepth, move, ss->staticEval);
 
                   return value;
               }
@@ -1328,9 +1328,9 @@ moves_loop: // When in check search starts from here
     if (InCheck && bestValue == -VALUE_INFINITE)
         return mated_in(ss->ply); // Plies to mate from the root
 
-    tte.save(posKey, value_to_tt(bestValue, ss->ply),
+    TT.save(ttIndex, posKey, value_to_tt(bestValue, ss->ply),
               PvNode && bestValue > oldAlpha ? BOUND_EXACT : BOUND_UPPER,
-              ttDepth, bestMove, ss->staticEval, TT.generation());
+              ttDepth, bestMove, ss->staticEval);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 

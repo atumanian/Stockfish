@@ -78,20 +78,15 @@ public:
   struct Cluster {
     Key16 key16[ClusterSize];
     Data data[ClusterSize];
-  };
 
-  struct Reference {
+    int probe(Key key, Data& ttData, bool& found, uint16_t g);
 
-    Reference() = default;
-
-    Reference(Cluster* cl, int i) : cluster(cl), index(i) {};
-
-    void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
+    void save(int i, Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
 
       assert(d / ONE_PLY * ONE_PLY == d);
       Data rdata;
       Key16 key = k >> 48, rkey;
-      read(rkey, rdata);
+      read(i, rkey, rdata);
 
       if (key != rkey)
         rdata.set(m, v, ev, d, g, b);
@@ -103,20 +98,18 @@ public:
         rdata.setMove(m);
       else return;
 
-      write(key, rdata);
+      write(i, key, rdata);
     }
 
-    void read(Key16& rkey, Data& rdata) const {
-      rdata = cluster->data[index];
-      rkey = rdata.decrypt(cluster->key16[index]);
+    void read(int index, Key16& rkey, Data& rdata) const {
+      rdata = data[index];
+      rkey = rdata.decrypt(key16[index]);
     }
-    void write(Key16 rkey, Data rdata) {
-      cluster->data[index] = rdata;
-      cluster->key16[index] = rdata.encrypt(rkey);
+
+    void write(int index, Key16 rkey, Data rdata) {
+      data[index] = rdata;
+      key16[index] = rdata.encrypt(rkey);
     }
-  private:
-    Cluster *cluster;
-    int index;
   };
 
   static_assert(CacheLineSize % sizeof(Cluster) == 0, "Cluster size incorrect");
@@ -125,10 +118,16 @@ public:
  ~TranspositionTable() { free(mem); }
   void new_search() { generation8 += 1024; } // Lower 2 bits are used by Bound
   uint16_t generation() const { return generation8; }
-  Reference probe(const Key key, Data& ttData, bool& found) const;
   int hashfull() const;
   void resize(size_t mbSize);
   void clear();
+
+  int probe(Key key, Data& ttData, bool& found) const {
+    return first_entry(key)->probe(key, ttData, found, generation());
+  }
+  void save(int i, Key k, Value v, Bound b, Depth d, Move m, Value ev) {
+    first_entry(k)->save(i, k, v, b, d, m, ev, generation());
+  }
 
   // The 32 lowest order bits of the key are used to get the index of the cluster
   Cluster* first_entry(const Key key) const {
