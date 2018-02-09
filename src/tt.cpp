@@ -26,7 +26,6 @@
 
 TranspositionTable TT; // Our global transposition table
 
-
 /// TranspositionTable::resize() sets the size of the transposition table,
 /// measured in megabytes. Transposition table consists of a power of 2 number
 /// of clusters and each cluster consists of ClusterSize number of TTEntry.
@@ -73,8 +72,7 @@ void TranspositionTable::clear() {
 /// minus 8 times its relative age. TTEntry t1 is considered more valuable than
 /// TTEntry t2 if its replace value is greater than that of t2.
 
-int TranspositionTable::Cluster::probe(Key k, Data& ttData, bool& found, uint16_t g) {
-  Key16 key = k >> 48;
+int TranspositionTable::Cluster::probe(Key16 key16, Data& ttData, bool& found, uint16_t g) {
 
   for (int i = 0; i < ClusterSize; ++i) {
       Data rdata;
@@ -83,7 +81,7 @@ int TranspositionTable::Cluster::probe(Key k, Data& ttData, bool& found, uint16_
       if (!rkey) {
         return found = false, i;
       }
-      if (key == rkey) {
+      if (key16 == rkey) {
         if (rdata.generation() != g) {
              rdata.setGeneration(g);
              data[i] = rdata;

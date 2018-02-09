@@ -42,12 +42,17 @@
 /// cache lines. This ensures best cache performance, as the cacheline is
 /// prefetched, as soon as possible.
 
+class TranspositionTable;
+extern TranspositionTable TT;
+
 class TranspositionTable {
 
   static const int CacheLineSize = 64;
   static const int ClusterSize = 3;
 
   typedef uint16_t Key16;
+
+  struct Cluster;
 
 public:
 
@@ -56,9 +61,10 @@ public:
     Value value() const { return Value(int64_t(data) >> 48); }
     Value eval()  const { return Value(int32_t(data) >> 16); }
     Depth depth() const { return Depth(int8_t(data) * int(ONE_PLY)); }
-    uint16_t generation() const { return data & 0xFC00; }
-    explicit operator int() { return data; }
     Bound bound() const { return Bound(data & 0x300); }
+    uint16_t generation() const { return data & 0xFC00; }
+  private:
+    explicit operator int() { return data; }
     Key16 encrypt(Key16 key) const { return key; }
     Key16 decrypt(Key16 key) const { return key; }
     void operator=(uint64_t d) { data = d; }
@@ -73,22 +79,21 @@ public:
 
   private:
     uint64_t data;
+  friend Cluster;
   };
-
+private:
   struct Cluster {
-    Key16 key16[ClusterSize];
-    Data data[ClusterSize];
 
-    int probe(Key key, Data& ttData, bool& found, uint16_t g);
+    int probe(Key16 key16, Data& ttData, bool& found, uint16_t g);
 
-    void save(int i, Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
+    void save(int i, Key16 k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
 
       assert(d / ONE_PLY * ONE_PLY == d);
       Data rdata;
-      Key16 key = k >> 48, rkey;
+      Key16 rkey;
       read(i, rkey, rdata);
 
-      if (key != rkey)
+      if (k != rkey)
         rdata.set(m, v, ev, d, g, b);
       else if (d / ONE_PLY > rdata.depth() - 4
             /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
@@ -98,9 +103,9 @@ public:
         rdata.setMove(m);
       else return;
 
-      write(i, key, rdata);
+      write(i, k, rdata);
     }
-
+  private:
     void read(int index, Key16& rkey, Data& rdata) const {
       rdata = data[index];
       rkey = rdata.decrypt(key16[index]);
@@ -110,38 +115,59 @@ public:
       data[index] = rdata;
       key16[index] = rdata.encrypt(rkey);
     }
+    Key16 key16[ClusterSize];
+  public:
+    Data data[ClusterSize];
   };
 
   static_assert(CacheLineSize % sizeof(Cluster) == 0, "Cluster size incorrect");
 
 public:
+  struct Manager {
+    Manager(Key key) {
+      key16 = key >> 48;
+      clusterPtr = TT.first_entry(key);
+    }
+    Data probe(bool& found) {
+       Data data;
+       index = clusterPtr->probe(key16, data, found, TT.generation());
+       return data;
+    }
+    void save(Value v, Bound b, Depth d, Move m, Value ev) {
+      clusterPtr->save(index, key16, v, b, d, m, ev, TT.generation());
+    }
+  private:
+    Key16 key16;
+    Cluster *clusterPtr;
+    int index;
+  };
+
  ~TranspositionTable() { free(mem); }
   void new_search() { generation8 += 1024; } // Lower 2 bits are used by Bound
-  uint16_t generation() const { return generation8; }
   int hashfull() const;
   void resize(size_t mbSize);
   void clear();
 
-  int probe(Key key, Data& ttData, bool& found) const {
-    return first_entry(key)->probe(key, ttData, found, generation());
-  }
-  void save(int i, Key k, Value v, Bound b, Depth d, Move m, Value ev) {
-    first_entry(k)->save(i, k, v, b, d, m, ev, generation());
-  }
-
-  // The 32 lowest order bits of the key are used to get the index of the cluster
   Cluster* first_entry(const Key key) const {
     return &table[(uint32_t(key) * uint64_t(clusterCount)) >> 32];
   }
 
-private:
+  private:
+    uint16_t generation() const { return generation8; }
+  /*int probe(Key key, Data& ttData, bool& found) const {
+    return first_entry(key)->probe(key, ttData, found, generation());
+  }
+  void save(int i, Key k, Value v, Bound b, Depth d, Move m, Value ev) {
+    first_entry(k)->save(i, k, v, b, d, m, ev, generation());
+  }*/
+
+  // The 32 lowest order bits of the key are used to get the index of the cluster
+
   size_t clusterCount;
   Key clusterIndexMask;
   Cluster* table;
   void* mem;
   uint16_t generation8; // Size must be not bigger than TTEntry::genBound8
 };
-
-extern TranspositionTable TT;
 
 #endif // #ifndef TT_H_INCLUDED
