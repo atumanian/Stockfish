@@ -47,6 +47,7 @@ struct TTEntry {
     Key operator^(Key keyXorData) const { return data ^ keyXorData; }
     void operator=(uint64_t d) { data = d; }
     void setGeneration(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
+    void setMove(Move m) { data = (data & 0xFFFF0000FFFFFFFF) | uint64_t(m) << 32; }
     void set(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
         data = uint64_t(v << 16 | m) << 32 | uint32_t(ev << 16 | g | b | uint8_t(d));
     }
@@ -65,18 +66,17 @@ struct TTEntry {
     Key key;
     read(key, rdata);
 
-    // Don't overwrite more valuable entries
-    if (  k != key
-        || d / ONE_PLY > rdata.depth() - 4
-     /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
-        || b == BOUND_EXACT)
-    {
-        // Preserve any existing move for the same position
-        if (m || k != key)
-          rdata.set(m, v, ev, d, g, b);
-        else rdata.set(v, ev, d, g, b);
-        write(k, rdata);
-    }
+    if (k != key)
+      rdata.set(m, v, ev, d, g, b);
+    else if (d / ONE_PLY > rdata.depth() - 4
+         /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
+            || b == BOUND_EXACT)
+      m ? rdata.set(m, v, ev, d, g, b) : rdata.set(v, ev, d, g, b);
+    else if (m)
+      rdata.setMove(m);
+    else return;
+
+    write(k, rdata);
   }
 
 private:
