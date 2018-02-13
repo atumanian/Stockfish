@@ -49,10 +49,10 @@ struct TTEntry {
     void setGeneration(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
     void setMove(Move m) { data = (data & 0xFFFF0000FFFFFFFF) | uint64_t(m) << 32; }
     void set(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
-        data = uint64_t(v << 16 | m) << 32 | uint32_t(ev << 16 | g | b | uint8_t(d));
+        data = uint64_t(v << 16 | m) << 32 | uint8_t(d) | b | g | uint32_t(ev << 16);
     }
     void set(Value v, Value ev, Depth d, uint16_t g, Bound b) {
-        data = (data & 0xFFFF00000000) | uint64_t(v) << 48 | uint32_t(ev << 16 | g | b | uint8_t(d));
+        data = (data & 0xFFFF00000000) | uint64_t(v) << 48 | uint8_t(d) | b | g | uint32_t(ev << 16);
     }
 
   private:
