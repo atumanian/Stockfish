@@ -21,6 +21,8 @@
 #ifndef TT_H_INCLUDED
 #define TT_H_INCLUDED
 
+#include <atomic>
+
 #include "misc.h"
 #include "types.h"
 
@@ -118,7 +120,7 @@ public:
  ~TranspositionTable() { free(mem); }
   void new_search() { generation8 += 1024; } // Lower 2 bits are used by Bound
   uint16_t generation() const { return generation8; }
-  TTEntry* probe(const Key key, TTEntry::Data& ttData, bool& found) const;
+  TTEntry* probe(const Key key, TTEntry::Data& ttData, bool& found);
   int hashfull() const;
   void resize(size_t mbSize);
   void clear();
@@ -127,6 +129,8 @@ public:
   TTEntry* first_entry(const Key key) const {
     return &table[(uint32_t(key) * uint64_t(clusterCount)) >> 32].entry[0];
   }
+
+  std::atomic<uint64_t> ttReads, ttCorruptedReads;
 
 private:
   size_t clusterCount;

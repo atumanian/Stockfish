@@ -44,6 +44,7 @@ typedef bool(*fun3_t)(HANDLE, CONST GROUP_AFFINITY*, PGROUP_AFFINITY);
 
 #include "misc.h"
 #include "thread.h"
+#include "tt.h"
 
 using namespace std;
 
@@ -155,6 +156,8 @@ void dbg_print() {
   if (means[0])
       cerr << "Total " << means[0] << " Mean "
            << (double)means[1] / means[0] << endl;
+
+  cerr << "TT reads: " << TT.ttReads << " Corrupted TT reads: " << TT.ttCorruptedReads << endl;
 }
 
 

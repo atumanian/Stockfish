@@ -65,6 +65,7 @@ void Thread::clear() {
           h.fill(0);
 
   contHistory[NO_PIECE][0].fill(Search::CounterMovePruneThreshold - 1);
+
 }
 
 /// Thread::start_searching() wakes up the thread that will start the search
