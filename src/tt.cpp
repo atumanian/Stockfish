@@ -63,7 +63,8 @@ void TranspositionTable::resize(size_t mbSize) {
 void TranspositionTable::clear() {
 
   std::memset(table, 0, clusterCount * sizeof(Cluster));
-  ttReads = ttCorruptedReads = 0;
+  ttReads.store(0, std::memory_order_relaxed);
+  ttCorruptedReads.store(0, std::memory_order_relaxed);
 }
 
 
