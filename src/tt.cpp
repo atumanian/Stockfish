@@ -83,10 +83,10 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& fou
       TTEntry::Data rdata;
       Key key;
       tte[i].read(key, rdata);
-      ++ttReads;
+      ttReads.fetch_add(1, std::memory_order_relaxed);
       if (((uint32_t(key) * uint64_t(clusterCount)) ^
     	  (uint32_t(k) * uint64_t(clusterCount))) >> 32 != 0)
-    	  ++ttCorruptedReads;
+    	  ttCorruptedReads.fetch_add(1, std::memory_order_relaxed);
       if (key == k) {
         if (rdata.generation() != generation8) {
              rdata.setGeneration(generation8);
