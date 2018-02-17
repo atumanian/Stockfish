@@ -175,6 +175,15 @@ namespace {
          << "\nTotal time (ms) : " << elapsed
          << "\nNodes searched  : " << nodes
          << "\nNodes/second    : " << 1000 * nodes / elapsed << endl;
+
+    uint64_t ttReads = 0, ttCorruptedReads = 0;
+
+    for (Thread* th: Threads) {
+    	ttReads += th->ttReads;
+    	ttCorruptedReads += th->ttCorruptedReads;
+    }
+
+    cerr << "TT reads: " << ttReads << " Corrupted TT reads: " << ttCorruptedReads << endl;
   }
 
 } // namespace

@@ -63,8 +63,6 @@ void TranspositionTable::resize(size_t mbSize) {
 void TranspositionTable::clear() {
 
   std::memset(table, 0, clusterCount * sizeof(Cluster));
-  ttReads.store(0, std::memory_order_relaxed);
-  ttCorruptedReads.store(0, std::memory_order_relaxed);
 }
 
 
@@ -75,7 +73,7 @@ void TranspositionTable::clear() {
 /// minus 8 times its relative age. TTEntry t1 is considered more valuable than
 /// TTEntry t2 if its replace value is greater than that of t2.
 
-TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& found) {
+TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& found, Thread* th) {
   TTEntry* const tte = first_entry(k);
 
   for (int i = 0; i < ClusterSize; ++i) {
@@ -84,10 +82,10 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& fou
       TTEntry::Data rdata;
       Key key;
       tte[i].read(key, rdata);
-      ttReads.fetch_add(1, std::memory_order_relaxed);
+      ++th->ttReads;
       if (((uint32_t(key) * uint64_t(clusterCount)) ^
     	  (uint32_t(k) * uint64_t(clusterCount))) >> 32 != 0)
-    	  ttCorruptedReads.fetch_add(1, std::memory_order_relaxed);
+    	  ++th->ttCorruptedReads;
       if (key == k) {
         if (rdata.generation() != generation8) {
              rdata.setGeneration(generation8);

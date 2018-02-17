@@ -157,8 +157,6 @@ void dbg_print() {
       cerr << "Total " << means[0] << " Mean "
            << (double)means[1] / means[0] << endl;
 
-  cerr << "TT reads: " << TT.ttReads.load(std::memory_order_relaxed)
-	   << " Corrupted TT reads: " << TT.ttCorruptedReads.load(std::memory_order_relaxed) << endl;
 }
 
 

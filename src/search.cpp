@@ -553,7 +553,7 @@ namespace {
     // position key in case of an excluded move.
     excludedMove = ss->excludedMove;
     posKey = pos.key() ^ Key(excludedMove << 16); // Isn't a very good hash
-    tte = TT.probe(posKey, ttData, ttHit);
+    tte = TT.probe(posKey, ttData, ttHit, thisThread);
     ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->PVIdx].pv[0]
             : ttHit    ? ttData.move() : MOVE_NONE;
@@ -771,7 +771,7 @@ namespace {
         Depth d = 3 * depth / 4 - 2 * ONE_PLY;
         search<NT>(pos, ss, alpha, beta, d, cutNode, true);
 
-        tte = TT.probe(posKey, ttData, ttHit);
+        tte = TT.probe(posKey, ttData, ttHit, thisThread);
         ttMove = ttHit ? ttData.move() : MOVE_NONE;
     }
 
@@ -1179,7 +1179,7 @@ moves_loop: // When in check, search starts from here
                                                   : DEPTH_QS_NO_CHECKS;
     // Transposition table lookup
     posKey = pos.key();
-    tte = TT.probe(posKey, ttData, ttHit);
+    tte = TT.probe(posKey, ttData, ttHit, pos.this_thread());
     ttMove = ttHit ? ttData.move() : MOVE_NONE;
     ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
 
@@ -1586,7 +1586,7 @@ bool RootMove::extract_ponder_from_tt(Position& pos) {
 
     pos.do_move(pv[0], st);
     TTEntry::Data ttData;
-    TT.probe(pos.key(), ttData, ttHit);
+    TT.probe(pos.key(), ttData, ttHit, pos.this_thread());
 
     if (ttHit)
     {
