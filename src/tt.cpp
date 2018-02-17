@@ -77,14 +77,14 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData) const {
   TTEntry* const tte = first_entry(k);
 
   for (int i = 0; i < ClusterSize; ++i) {
-      if (!tte[i].keyXorData)
+      if (!tte[i].encKey)
         return ttData = TTEntry::Data::empty(), &tte[i];
       TTEntry::Data rdata;
       Key key;
       tte[i].read(key, rdata);
       if (key == k) {
         if (rdata.generation() != generation8) {
-             rdata.setGeneration(generation8);
+             rdata.set_generation(generation8);
              tte[i].write(key, rdata);
         }
         return ttData = rdata, &tte[i];
@@ -97,10 +97,9 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData) const {
   // nature we add 259 (256 is the modulus plus 3 to keep the lowest
   // two bound bits from affecting the result) to calculate the entry
   // age correctly even after generation8 overflows into the next cycle.
-  //int genPlus1024 = generation8 + 0x400;
-  int entryValue = tte[0].data.depth() - (((0x103FF + generation8 - int(tte[0].data)) & 0xFC00) >> 7);
+  int entryValue = tte[0].data.importance(generation8);
   for (int i = 1; i < ClusterSize; ++i) {
-      int newValue = tte[i].data.depth() - (((0x103FF + generation8 - int(tte[i].data)) & 0xFC00) >> 7);
+      int newValue = tte[i].data.importance(generation8);
       if (entryValue > newValue) {
           entryValue = newValue;
           replace = &tte[i];

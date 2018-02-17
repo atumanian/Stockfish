@@ -42,76 +42,67 @@ struct TTEntry {
     Value eval()  const { return Value(int32_t(data) >> 16); }
     Depth depth() const { return Depth(int8_t(data) * int(ONE_PLY)); }
     uint16_t generation() const { return data & 0xFC00; }
-    explicit operator int() { return data; }
     Bound bound() const { return Bound(data & 0x300); }
-    Key operator^(Key keyXorData) const { return data ^ keyXorData; }
-    void operator=(uint64_t d) { data = d; }
+    Key enc_dec(Key encKey) const { return data ^ encKey; }
     Data() = default;
-    //constexpr Data(uint64_t d) : data(d) {}
-    //constexpr operator=(const Data& dat) { data = dat.data; };
-    void setGeneration(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
-    void setMove(Move m) { data = (data & 0xFFFF0000FFFFFFFF) | uint64_t(m) << 32; }
+    void set_generation(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
+    void set_move(Move m) { data = (data & 0xFFFF0000FFFFFFFF) | uint64_t(m) << 32; }
     void set(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
-        data = uint64_t(v << 16 | m) << 32 | uint32_t(ev << 16 | g | b | uint8_t(d));
+        data = pack(m, v, ev, d, g, b);
     }
     void set(Value v, Value ev, Depth d, uint16_t g, Bound b) {
         data = (data & 0xFFFF00000000) | uint64_t(v) << 48 | uint32_t(ev << 16 | g | b | uint8_t(d));
     }
+    int importance(uint16_t g) const {
+    	return depth() - (((0x103FF + g - int(data)) & 0xFC00) >> 7);
+    }
     static Data empty() {
-    	return Data(uint64_t(VALUE_NONE << 16 | MOVE_NONE) << 32
-    		 | uint32_t(VALUE_NONE << 16 | BOUND_NONE | uint8_t(DEPTH_NONE)));
+    	return Data(pack(MOVE_NONE, VALUE_NONE, VALUE_NONE, DEPTH_NONE, 0, BOUND_NONE));
     }
 
   private:
     uint64_t data;
     Data(uint64_t d) : data(d) {}
+    static uint64_t pack(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
+        return uint64_t(v << 16 | m) << 32 | uint32_t(ev << 16 | g | b | uint8_t(d));
+    }
   };
-  static const Data DATA_EMPTY;
-	//  uint64_t(VALUE_NONE << 16 | MOVE_NONE) << 32 | uint32_t(VALUE_NONE << 16 | BOUND_NONE | uint8_t(DEPTH_NONE))};
-  //static const Data DATA_EMPTY(uint64_t(VALUE_NONE << 16 | MOVE_NONE) << 32
-	//| uint32_t(VALUE_NONE << 16 | BOUND_NONE | uint8_t(DEPTH_NONE)));
-  void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g);
+
+  void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
+
+      assert(d / ONE_PLY * ONE_PLY == d);
+      Data rdata;
+      Key key;
+      read(key, rdata);
+
+      if (k != key)
+        rdata.set(m, v, ev, d, g, b);
+      else if (d / ONE_PLY > rdata.depth() - 4
+           /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
+              || b == BOUND_EXACT)
+        m ? rdata.set(m, v, ev, d, g, b) : rdata.set(v, ev, d, g, b);
+      else if (m)
+        rdata.set_move(m);
+      else return;
+
+      write(k, rdata);
+  }
 
 private:
   friend class TranspositionTable;
 
   void read(Key& key, Data& rdata) const {
       rdata = data;
-      key = rdata ^ keyXorData;
+      key = rdata.enc_dec(encKey);
   }
   void write(Key key, Data rdata) {
       data = rdata;
-      keyXorData = rdata ^ key;
+      encKey = rdata.enc_dec(key);
   }
 
-  uint64_t keyXorData;
+  Key encKey;
   Data data;
 };
-
-//const TTEntry::Data TTEntry::DATA_EMPTY = Data(1234)
-
-//const TTEntry::Data TTEntry::Data::EMPTY = uint64_t(VALUE_NONE << 16 | MOVE_NONE) << 32
-	//	| uint32_t(VALUE_NONE << 16 | BOUND_NONE | uint8_t(DEPTH_NONE));
-
-inline void TTEntry::save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
-
-    assert(d / ONE_PLY * ONE_PLY == d);
-    Data rdata;
-    Key key;
-    read(key, rdata);
-
-    if (k != key)
-      rdata.set(m, v, ev, d, g, b);
-    else if (d / ONE_PLY > rdata.depth() - 4
-         /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
-            || b == BOUND_EXACT)
-      m ? rdata.set(m, v, ev, d, g, b) : rdata.set(v, ev, d, g, b);
-    else if (m)
-      rdata.setMove(m);
-    else return;
-
-    write(k, rdata);
-  }
 
 /// A TranspositionTable consists of a power of 2 number of clusters and each
 /// cluster consists of ClusterSize number of TTEntry. Each non-empty entry
