@@ -78,7 +78,7 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData) const {
 
   for (int i = 0; i < ClusterSize; ++i) {
       if (!tte[i].encKey)
-        return ttData = TTEntry::Data::empty(), &tte[i];
+        return ttData.empty(), &tte[i];
       TTEntry::Data rdata;
       Key key;
       tte[i].read(key, rdata);
@@ -105,7 +105,7 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData) const {
           replace = &tte[i];
       }
   }
-  return ttData = TTEntry::Data::empty(), replace;
+  return ttData.empty(), replace;
 }
 
 

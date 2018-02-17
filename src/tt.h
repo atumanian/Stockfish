@@ -43,29 +43,30 @@ struct TTEntry {
     Depth depth() const { return Depth(int8_t(data) * int(ONE_PLY)); }
     uint16_t generation() const { return data & 0xFC00; }
     Bound bound() const { return Bound(data & 0x300); }
-    Key enc_dec(Key encKey) const { return data ^ encKey; }
+    Key enc_dec(Key k) const { return data ^ k; }
     Data() = default;
     void set_generation(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
     void set_move(Move m) { data = (data & 0xFFFF0000FFFFFFFF) | uint64_t(m) << 32; }
     void set(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
-        data = pack(m, v, ev, d, g, b);
+        data = uint64_t(m) << 32 | pack(v, ev, d, g, b);
     }
     void set(Value v, Value ev, Depth d, uint16_t g, Bound b) {
-        data = (data & 0xFFFF00000000) | uint64_t(v) << 48 | uint32_t(ev << 16 | g | b | uint8_t(d));
+        data = (data & 0xFFFF00000000) | pack(v, ev, d, g, b);
+    }
+    void empty() {
+        set(MOVE_NONE, VALUE_NONE, VALUE_NONE, DEPTH_NONE, 0, BOUND_NONE);
     }
     int importance(uint16_t g) const {
     	return depth() - (((0x103FF + g - int(data)) & 0xFC00) >> 7);
     }
-    static Data empty() {
-    	return Data(pack(MOVE_NONE, VALUE_NONE, VALUE_NONE, DEPTH_NONE, 0, BOUND_NONE));
-    }
 
   private:
-    uint64_t data;
     Data(uint64_t d) : data(d) {}
-    static uint64_t pack(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
-        return uint64_t(v << 16 | m) << 32 | uint32_t(ev << 16 | g | b | uint8_t(d));
+    static uint64_t pack(Value v, Value ev, Depth d, uint16_t g, Bound b) {
+        return uint64_t(v) << 48 | uint32_t(ev << 16 | g | b | uint8_t(d));
     }
+
+    uint64_t data;
   };
 
   void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {

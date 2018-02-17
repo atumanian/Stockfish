@@ -1582,12 +1582,13 @@ bool RootMove::extract_ponder_from_tt(Position& pos) {
         return false;
 
     pos.do_move(pv[0], st);
+
     TTEntry::Data ttData;
+
     TT.probe(pos.key(), ttData);
 
-    if (ttData.eval() != VALUE_NONE)
+    if (Move m = ttData.move())
     {
-        Move m = ttData.move(); // Local copy to be SMP safe
         if (MoveList<LEGAL>(pos).contains(m))
             pv.push_back(m);
     }
