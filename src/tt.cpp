@@ -73,12 +73,12 @@ void TranspositionTable::clear() {
 /// minus 8 times its relative age. TTEntry t1 is considered more valuable than
 /// TTEntry t2 if its replace value is greater than that of t2.
 
-TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& found, Thread* th) {
+TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, Thread* th) {
   TTEntry* const tte = first_entry(k);
 
   for (int i = 0; i < ClusterSize; ++i) {
-      if (!tte[i].keyXorData)
-        return found = false, &tte[i];
+      if (!tte[i].encKey)
+        return ttData.empty(), &tte[i];
       TTEntry::Data rdata;
       Key key;
       tte[i].read(key, rdata);
@@ -88,10 +88,10 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& fou
     	  ++th->ttCorruptedReads;
       if (key == k) {
         if (rdata.generation() != generation8) {
-             rdata.setGeneration(generation8);
+             rdata.set_generation(generation8);
              tte[i].write(key, rdata);
         }
-        return found = true, ttData = rdata, &tte[i];
+        return ttData = rdata, &tte[i];
       }
   }
 
@@ -101,16 +101,15 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& fou
   // nature we add 259 (256 is the modulus plus 3 to keep the lowest
   // two bound bits from affecting the result) to calculate the entry
   // age correctly even after generation8 overflows into the next cycle.
-  //int genPlus1024 = generation8 + 0x400;
-  int entryValue = tte[0].data.depth() - (((0x103FF + generation8 - int(tte[0].data)) & 0xFC00) >> 7);
+  int entryValue = tte[0].data.importance(generation8);
   for (int i = 1; i < ClusterSize; ++i) {
-      int newValue = tte[i].data.depth() - (((0x103FF + generation8 - int(tte[i].data)) & 0xFC00) >> 7);
+      int newValue = tte[i].data.importance(generation8);
       if (entryValue > newValue) {
           entryValue = newValue;
           replace = &tte[i];
       }
   }
-  return found = false, replace;
+  return ttData.empty(), replace;
 }
 
 

@@ -499,7 +499,7 @@ namespace {
     Move ttMove, move, excludedMove, bestMove;
     Depth extension, newDepth;
     Value bestValue, value, ttValue, eval, maxValue;
-    bool ttHit, inCheck, givesCheck, singularExtensionNode, improving;
+    bool inCheck, givesCheck, singularExtensionNode, improving;
     bool captureOrPromotion, doFullDepthSearch, moveCountPruning, skipQuiets, ttCapture, pvExact;
     Piece movedPiece;
     int moveCount, captureCount, quietCount;
@@ -553,16 +553,15 @@ namespace {
     // position key in case of an excluded move.
     excludedMove = ss->excludedMove;
     posKey = pos.key() ^ Key(excludedMove << 16); // Isn't a very good hash
-    tte = TT.probe(posKey, ttData, ttHit, thisThread);
-    ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
+    tte = TT.probe(posKey, ttData, thisThread);
+    ttValue = value_from_tt(ttData.value(), ss->ply);
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->PVIdx].pv[0]
-            : ttHit    ? ttData.move() : MOVE_NONE;
+            : ttData.move();
 
     assert(ttMove == MOVE_NONE || (pos.pseudo_legal(ttMove) && pos.legal(ttMove)));
 
     // At non-PV nodes we check for an early TT cutoff
     if (  !PvNode
-        && ttHit
         && ttData.depth() >= depth
         //&& ttValue != VALUE_NONE // Possible in case of TT access race
         && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
@@ -644,7 +643,7 @@ namespace {
         ss->staticEval = eval = VALUE_NONE;
         goto moves_loop;
     }
-    else if (ttHit)
+    else if (ttData.eval() != VALUE_NONE)
     {
         // Never assume anything on values stored in TT
         /*if ((ss->staticEval = eval = ttData.eval()) == VALUE_NONE)
@@ -771,8 +770,8 @@ namespace {
         Depth d = 3 * depth / 4 - 2 * ONE_PLY;
         search<NT>(pos, ss, alpha, beta, d, cutNode, true);
 
-        tte = TT.probe(posKey, ttData, ttHit, thisThread);
-        ttMove = ttHit ? ttData.move() : MOVE_NONE;
+        tte = TT.probe(posKey, ttData, thisThread);
+        ttMove = ttData.move();
     }
 
 moves_loop: // When in check, search starts from here
@@ -786,7 +785,7 @@ moves_loop: // When in check, search starts from here
             /* || ss->staticEval == VALUE_NONE Already implicit in the previous condition */
                ||(ss-2)->staticEval == VALUE_NONE;
 
-    assert(ttMove == MOVE_NONE || ttValue == VALUE_NONE || ttHit);
+    //assert(ttMove == MOVE_NONE || ttValue == VALUE_NONE || ttHit);
 
     singularExtensionNode =   !rootNode
                            &&  depth >= 8 * ONE_PLY
@@ -797,7 +796,7 @@ moves_loop: // When in check, search starts from here
                            &&  ttData.depth() >= depth - 3 * ONE_PLY;
     skipQuiets = false;
     ttCapture = false;
-    pvExact = PvNode && ttHit && ttData.bound() == BOUND_EXACT;
+    pvExact = PvNode && ttData.bound() == BOUND_EXACT;
 
     // Step 12. Loop through all pseudo-legal moves until no moves remain
     // or a beta cutoff occurs.
@@ -1151,7 +1150,7 @@ moves_loop: // When in check, search starts from here
     Move ttMove, move, bestMove;
     Depth ttDepth;
     Value bestValue, value, ttValue, futilityValue, futilityBase, oldAlpha;
-    bool ttHit, givesCheck, evasionPrunable;
+    bool givesCheck, evasionPrunable;
     int moveCount;
 
     if (PvNode)
@@ -1179,14 +1178,13 @@ moves_loop: // When in check, search starts from here
                                                   : DEPTH_QS_NO_CHECKS;
     // Transposition table lookup
     posKey = pos.key();
-    tte = TT.probe(posKey, ttData, ttHit, pos.this_thread());
-    ttMove = ttHit ? ttData.move() : MOVE_NONE;
-    ttValue = ttHit ? value_from_tt(ttData.value(), ss->ply) : VALUE_NONE;
+    tte = TT.probe(posKey, ttData, pos.this_thread());
+    ttMove = ttData.move();
+    ttValue = value_from_tt(ttData.value(), ss->ply);
 
     assert(ttMove == MOVE_NONE || (pos.pseudo_legal(ttMove) && pos.legal(ttMove)));
 
     if (  !PvNode
-        && ttHit
         && ttData.depth() >= ttDepth
         //&& ttValue != VALUE_NONE // Only in case of TT access race
         && (ttValue >= beta ? (ttData.bound() &  BOUND_LOWER)
@@ -1201,7 +1199,7 @@ moves_loop: // When in check, search starts from here
     }
     else
     {
-        if (ttHit)
+        if (ttData.eval() != VALUE_NONE)
         {
             // Never assume anything on values stored in TT
             /*if ((ss->staticEval = bestValue = ttData.eval()) == VALUE_NONE)
@@ -1224,7 +1222,7 @@ moves_loop: // When in check, search starts from here
         // Stand pat. Return immediately if static value is at least beta
         if (bestValue >= beta)
         {
-            if (!ttHit)
+            if (ttData.eval() == VALUE_NONE)
                 tte->save(posKey, value_to_tt(bestValue, ss->ply), BOUND_LOWER,
                           DEPTH_NONE, MOVE_NONE, ss->staticEval, TT.generation());
 
@@ -1577,7 +1575,6 @@ string UCI::pv(const Position& pos, Depth depth, Value alpha, Value beta) {
 bool RootMove::extract_ponder_from_tt(Position& pos) {
 
     StateInfo st;
-    bool ttHit;
 
     assert(pv.size() == 1);
 
@@ -1585,12 +1582,13 @@ bool RootMove::extract_ponder_from_tt(Position& pos) {
         return false;
 
     pos.do_move(pv[0], st);
-    TTEntry::Data ttData;
-    TT.probe(pos.key(), ttData, ttHit, pos.this_thread());
 
-    if (ttHit)
+    TTEntry::Data ttData;
+
+    TT.probe(pos.key(), ttData, pos.this_thread());
+
+    if (Move m = ttData.move())
     {
-        Move m = ttData.move(); // Local copy to be SMP safe
         if (MoveList<LEGAL>(pos).contains(m))
             pv.push_back(m);
     }
