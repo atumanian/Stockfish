@@ -73,12 +73,12 @@ void TranspositionTable::clear() {
 /// minus 8 times its relative age. TTEntry t1 is considered more valuable than
 /// TTEntry t2 if its replace value is greater than that of t2.
 
-TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& found) const {
+TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData) const {
   TTEntry* const tte = first_entry(k);
 
   for (int i = 0; i < ClusterSize; ++i) {
       if (!tte[i].keyXorData)
-        return found = false, &tte[i];
+        return ttData = TTEntry::Data::empty(), &tte[i];
       TTEntry::Data rdata;
       Key key;
       tte[i].read(key, rdata);
@@ -87,7 +87,7 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& fou
              rdata.setGeneration(generation8);
              tte[i].write(key, rdata);
         }
-        return found = true, ttData = rdata, &tte[i];
+        return ttData = rdata, &tte[i];
       }
   }
 
@@ -106,7 +106,7 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData, bool& fou
           replace = &tte[i];
       }
   }
-  return found = false, replace;
+  return ttData = TTEntry::Data::empty(), replace;
 }
 
 

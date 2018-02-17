@@ -46,6 +46,9 @@ struct TTEntry {
     Bound bound() const { return Bound(data & 0x300); }
     Key operator^(Key keyXorData) const { return data ^ keyXorData; }
     void operator=(uint64_t d) { data = d; }
+    Data() = default;
+    //constexpr Data(uint64_t d) : data(d) {}
+    //constexpr operator=(const Data& dat) { data = dat.data; };
     void setGeneration(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
     void setMove(Move m) { data = (data & 0xFFFF0000FFFFFFFF) | uint64_t(m) << 32; }
     void set(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
@@ -54,12 +57,43 @@ struct TTEntry {
     void set(Value v, Value ev, Depth d, uint16_t g, Bound b) {
         data = (data & 0xFFFF00000000) | uint64_t(v) << 48 | uint32_t(ev << 16 | g | b | uint8_t(d));
     }
+    static Data empty() {
+    	return Data(uint64_t(VALUE_NONE << 16 | MOVE_NONE) << 32
+    		 | uint32_t(VALUE_NONE << 16 | BOUND_NONE | uint8_t(DEPTH_NONE)));
+    }
 
   private:
     uint64_t data;
+    Data(uint64_t d) : data(d) {}
   };
+  static const Data DATA_EMPTY;
+	//  uint64_t(VALUE_NONE << 16 | MOVE_NONE) << 32 | uint32_t(VALUE_NONE << 16 | BOUND_NONE | uint8_t(DEPTH_NONE))};
+  //static const Data DATA_EMPTY(uint64_t(VALUE_NONE << 16 | MOVE_NONE) << 32
+	//| uint32_t(VALUE_NONE << 16 | BOUND_NONE | uint8_t(DEPTH_NONE)));
+  void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g);
 
-  void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
+private:
+  friend class TranspositionTable;
+
+  void read(Key& key, Data& rdata) const {
+      rdata = data;
+      key = rdata ^ keyXorData;
+  }
+  void write(Key key, Data rdata) {
+      data = rdata;
+      keyXorData = rdata ^ key;
+  }
+
+  uint64_t keyXorData;
+  Data data;
+};
+
+//const TTEntry::Data TTEntry::DATA_EMPTY = Data(1234)
+
+//const TTEntry::Data TTEntry::Data::EMPTY = uint64_t(VALUE_NONE << 16 | MOVE_NONE) << 32
+	//	| uint32_t(VALUE_NONE << 16 | BOUND_NONE | uint8_t(DEPTH_NONE));
+
+inline void TTEntry::save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
 
     assert(d / ONE_PLY * ONE_PLY == d);
     Data rdata;
@@ -78,23 +112,6 @@ struct TTEntry {
 
     write(k, rdata);
   }
-
-private:
-  friend class TranspositionTable;
-
-  void read(Key& key, Data& rdata) const {
-      rdata = data;
-      key = rdata ^ keyXorData;
-  }
-  void write(Key key, Data rdata) {
-      data = rdata;
-      keyXorData = rdata ^ key;
-  }
-
-  uint64_t keyXorData;
-  Data data;
-};
-
 
 /// A TranspositionTable consists of a power of 2 number of clusters and each
 /// cluster consists of ClusterSize number of TTEntry. Each non-empty entry
@@ -118,7 +135,7 @@ public:
  ~TranspositionTable() { free(mem); }
   void new_search() { generation8 += 1024; } // Lower 2 bits are used by Bound
   uint16_t generation() const { return generation8; }
-  TTEntry* probe(const Key key, TTEntry::Data& ttData, bool& found) const;
+  TTEntry* probe(const Key key, TTEntry::Data& ttData) const;
   int hashfull() const;
   void resize(size_t mbSize);
   void clear();
