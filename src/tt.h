@@ -43,7 +43,6 @@ struct TTEntry {
     Depth depth() const { return Depth(int8_t(data) * int(ONE_PLY)); }
     uint16_t generation() const { return data & 0xFC00; }
     Bound bound() const { return Bound(data & 0x300); }
-    Key enc_dec(Key k) const { return data ^ k; }
     void set_generation(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
     void set_move(Move m) { data = (data & 0xFFFF0000FFFFFFFF) | uint64_t(m) << 32; }
     void set(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
@@ -70,36 +69,24 @@ struct TTEntry {
   void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
 
       assert(d / ONE_PLY * ONE_PLY == d);
-      Data rdata;
-      Key key;
-      read(key, rdata);
 
       if (k != key)
-        rdata.set(m, v, ev, d, g, b);
-      else if (d / ONE_PLY > rdata.depth() - 4
+        data.set(m, v, ev, d, g, b);
+      else if (d / ONE_PLY > data.depth() - 4
            /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
               || b == BOUND_EXACT)
-        m ? rdata.set(m, v, ev, d, g, b) : rdata.set(v, ev, d, g, b);
+        m ? data.set(m, v, ev, d, g, b) : data.set(v, ev, d, g, b);
       else if (m)
-        rdata.set_move(m);
+        data.set_move(m);
       else return;
 
-      write(k, rdata);
+      key = k;
   }
 
 private:
   friend class TranspositionTable;
 
-  void read(Key& key, Data& rdata) const {
-      rdata = data;
-      key = rdata.enc_dec(encKey);
-  }
-  void write(Key key, Data rdata) {
-      data = rdata;
-      encKey = rdata.enc_dec(key);
-  }
-
-  Key encKey;
+  Key key;
   Data data;
 };
 

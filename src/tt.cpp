@@ -77,15 +77,16 @@ TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData) const {
   TTEntry* const tte = first_entry(k);
 
   for (int i = 0; i < ClusterSize; ++i) {
-      if (!tte[i].encKey)
+      if (!tte[i].key)
         return ttData.empty(), &tte[i];
-      TTEntry::Data rdata;
-      Key key;
-      tte[i].read(key, rdata);
+      TTEntry::Data rdata = tte[i].data;
+      Key key = tte[i].key;
+
       if (key == k) {
         if (rdata.generation() != generation8) {
              rdata.set_generation(generation8);
-             tte[i].write(key, rdata);
+             tte[i].key = key;
+             tte[i].data = rdata;
         }
         return ttData = rdata, &tte[i];
       }
