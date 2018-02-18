@@ -88,7 +88,7 @@ public:
 private:
   struct Cluster {
 
-	static const int KEY_LENGTH = 16;
+	static const int KEY_LENGTH = 21;
 	static const uint64_t KEY_MASK = (uint64_t(1) << KEY_LENGTH) - 1;
 
     int probe(uint64_t shortKey, Data& ttData, uint16_t g);
