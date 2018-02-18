@@ -122,10 +122,9 @@ private:
 
 public:
   struct Manager {
-    Manager(Key key) {
-      shortKey = key >> 64 - Cluster::KEY_LENGTH;
-      clusterPtr = TT.first_entry(key);
-    }
+    Manager(Key key) :
+      shortKey(key >> 64 - Cluster::KEY_LENGTH),
+      clusterPtr(TT.first_entry(key)) {}
     Data probe() {
        Data data;
        index = clusterPtr->probe(shortKey, data, TT.generation());
@@ -135,8 +134,8 @@ public:
       clusterPtr->save(index, shortKey, v, b, d, m, ev, TT.generation());
     }
   private:
-    uint64_t shortKey;
-    Cluster *clusterPtr;
+    const uint64_t shortKey;
+    Cluster *const clusterPtr;
     int index;
   };
 
