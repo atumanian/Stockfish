@@ -493,8 +493,8 @@ namespace {
 
     Move pv[MAX_PLY+1], capturesSearched[32], quietsSearched[64];
     StateInfo st;
-    TTEntry *tte;
-    TTEntry::Data ttData;
+    //int ttIndex;
+    TranspositionTable::Data ttData;
     Key posKey;
     Move ttMove, move, excludedMove, bestMove;
     Depth extension, newDepth;
@@ -553,7 +553,8 @@ namespace {
     // position key in case of an excluded move.
     excludedMove = ss->excludedMove;
     posKey = pos.key() ^ Key(excludedMove << 16); // Isn't a very good hash
-    tte = TT.probe(posKey, ttData);
+    TranspositionTable::Manager ttManager(posKey);
+    ttData = ttManager.probe();
     ttValue = value_from_tt(ttData.value(), ss->ply);
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->PVIdx].pv[0]
             : ttData.move();
@@ -561,7 +562,7 @@ namespace {
     // At non-PV nodes we check for an early TT cutoff
     if (  !PvNode
         && ttData.depth() >= depth
-        //&& ttValue != VALUE_NONE // Possible in case of TT access race
+        && ttValue != VALUE_NONE // Possible in case of TT access race
         && (ttValue >= beta ? (ttData.bound() & BOUND_LOWER)
                             : (ttData.bound() & BOUND_UPPER)))
     {
@@ -617,9 +618,9 @@ namespace {
                 if (    b == BOUND_EXACT
                     || (b == BOUND_LOWER ? value >= beta : value <= alpha))
                 {
-                    tte->save(posKey, value_to_tt(value, ss->ply), b,
+                    ttManager.save(value_to_tt(value, ss->ply), b,
                               std::min(DEPTH_MAX - ONE_PLY, depth + 6 * ONE_PLY),
-                              MOVE_NONE, VALUE_NONE, TT.generation());
+                              MOVE_NONE, VALUE_NONE);
 
                     return value;
                 }
@@ -644,11 +645,8 @@ namespace {
     else if (ttData.eval() != VALUE_NONE)
     {
         // Never assume anything on values stored in TT
-        /*if ((ss->staticEval = eval = ttData.eval()) == VALUE_NONE)
-            eval = ss->staticEval = evaluate(pos);*/
-        ss->staticEval = eval = ttData.eval();
-
-        assert(eval != VALUE_NONE);
+        if ((ss->staticEval = eval = ttData.eval()) == VALUE_NONE)
+            eval = ss->staticEval = evaluate(pos);
 
         // Can ttValue be used as a better position evaluation?
         if (    ttValue != VALUE_NONE
@@ -661,8 +659,8 @@ namespace {
         (ss-1)->currentMove != MOVE_NULL ? evaluate(pos)
                                          : -(ss-1)->staticEval + 2 * Eval::Tempo;
 
-        tte->save(posKey, VALUE_NONE, BOUND_NONE, DEPTH_NONE, MOVE_NONE,
-                  ss->staticEval, TT.generation());
+        ttManager.save(VALUE_NONE, BOUND_NONE, DEPTH_NONE, MOVE_NONE,
+                  ss->staticEval);
     }
 
     if (skipEarlyPruning || !pos.non_pawn_material(pos.side_to_move()))
@@ -768,7 +766,7 @@ namespace {
         Depth d = 3 * depth / 4 - 2 * ONE_PLY;
         search<NT>(pos, ss, alpha, beta, d, cutNode, true);
 
-        tte = TT.probe(posKey, ttData);
+        ttData = ttManager.probe();
         ttMove = ttData.move();
     }
 
@@ -840,8 +838,8 @@ moves_loop: // When in check, search starts from here
       // reduced search on on all the other moves but the ttMove and if the
       // result is lower than ttValue minus a margin then we will extend the ttMove.
       if (    singularExtensionNode
-              &&  move == ttMove
-              &&  pos.legal(move))
+    	  &&  move == ttMove
+          &&  pos.legal(move))
       {
           Value rBeta = std::max(ttValue - 2 * depth / ONE_PLY, -VALUE_MATE);
           ss->excludedMove = move;
@@ -1116,10 +1114,10 @@ moves_loop: // When in check, search starts from here
         bestValue = std::min(bestValue, maxValue);
 
     if (!excludedMove)
-        tte->save(posKey, value_to_tt(bestValue, ss->ply),
+        ttManager.save(value_to_tt(bestValue, ss->ply),
                   bestValue >= beta ? BOUND_LOWER :
                   PvNode && bestMove ? BOUND_EXACT : BOUND_UPPER,
-                  depth, bestMove, ss->staticEval, TT.generation());
+                  depth, bestMove, ss->staticEval);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
@@ -1143,8 +1141,8 @@ moves_loop: // When in check, search starts from here
 
     Move pv[MAX_PLY+1];
     StateInfo st;
-    TTEntry* tte;
-    TTEntry::Data ttData;
+    //int ttIndex;
+    TranspositionTable::Data ttData;
     Key posKey;
     Move ttMove, move, bestMove;
     Depth ttDepth;
@@ -1177,13 +1175,14 @@ moves_loop: // When in check, search starts from here
                                                   : DEPTH_QS_NO_CHECKS;
     // Transposition table lookup
     posKey = pos.key();
-    tte = TT.probe(posKey, ttData);
+    TranspositionTable::Manager ttManager(posKey);
+    ttData = ttManager.probe();
     ttMove = ttData.move();
     ttValue = value_from_tt(ttData.value(), ss->ply);
 
     if (  !PvNode
         && ttData.depth() >= ttDepth
-        //&& ttValue != VALUE_NONE // Only in case of TT access race
+        && ttValue != VALUE_NONE // Only in case of TT access race
         && (ttValue >= beta ? (ttData.bound() &  BOUND_LOWER)
                             : (ttData.bound() &  BOUND_UPPER)))
         return ttValue;
@@ -1199,12 +1198,8 @@ moves_loop: // When in check, search starts from here
         if (ttData.eval() != VALUE_NONE)
         {
             // Never assume anything on values stored in TT
-            /*if ((ss->staticEval = bestValue = ttData.eval()) == VALUE_NONE)
-                ss->staticEval = bestValue = evaluate(pos);*/
-
-            ss->staticEval = bestValue = ttData.eval();
-
-            assert(bestValue != VALUE_NONE);
+            if ((ss->staticEval = bestValue = ttData.eval()) == VALUE_NONE)
+                ss->staticEval = bestValue = evaluate(pos);
 
             // Can ttValue be used as a better position evaluation?
             if (   ttValue != VALUE_NONE
@@ -1220,8 +1215,8 @@ moves_loop: // When in check, search starts from here
         if (bestValue >= beta)
         {
             if (ttData.eval() == VALUE_NONE)
-                tte->save(posKey, value_to_tt(bestValue, ss->ply), BOUND_LOWER,
-                          DEPTH_NONE, MOVE_NONE, ss->staticEval, TT.generation());
+            	ttManager.save(value_to_tt(bestValue, ss->ply), BOUND_LOWER,
+            	                          DEPTH_NONE, MOVE_NONE, ss->staticEval);
 
             return bestValue;
         }
@@ -1320,8 +1315,8 @@ moves_loop: // When in check, search starts from here
               }
               else // Fail high
               {
-                  tte->save(posKey, value_to_tt(value, ss->ply), BOUND_LOWER,
-                            ttDepth, move, ss->staticEval, TT.generation());
+                  ttManager.save(value_to_tt(value, ss->ply), BOUND_LOWER,
+                            ttDepth, move, ss->staticEval);
 
                   return value;
               }
@@ -1334,9 +1329,9 @@ moves_loop: // When in check, search starts from here
     if (InCheck && bestValue == -VALUE_INFINITE)
         return mated_in(ss->ply); // Plies to mate from the root
 
-    tte->save(posKey, value_to_tt(bestValue, ss->ply),
+    ttManager.save(value_to_tt(bestValue, ss->ply),
               PvNode && bestValue > oldAlpha ? BOUND_EXACT : BOUND_UPPER,
-              ttDepth, bestMove, ss->staticEval, TT.generation());
+              ttDepth, bestMove, ss->staticEval);
 
     assert(bestValue > -VALUE_INFINITE && bestValue < VALUE_INFINITE);
 
@@ -1580,9 +1575,8 @@ bool RootMove::extract_ponder_from_tt(Position& pos) {
 
     pos.do_move(pv[0], st);
 
-    TTEntry::Data ttData;
-
-    TT.probe(pos.key(), ttData);
+    TranspositionTable::Data ttData;
+    ttData = TranspositionTable::Manager(pos.key()).probe();
 
     if (Move m = ttData.move())
     {

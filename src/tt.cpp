@@ -26,7 +26,6 @@
 
 TranspositionTable TT; // Our global transposition table
 
-
 /// TranspositionTable::resize() sets the size of the transposition table,
 /// measured in megabytes. Transposition table consists of a power of 2 number
 /// of clusters and each cluster consists of ClusterSize number of TTEntry.
@@ -72,37 +71,38 @@ void TranspositionTable::clear() {
 /// minus 8 times its relative age. TTEntry t1 is considered more valuable than
 /// TTEntry t2 if its replace value is greater than that of t2.
 
-TTEntry* TranspositionTable::probe(const Key k, TTEntry::Data& ttData) const {
-  TTEntry* const tte = first_entry(k);
+int TranspositionTable::Cluster::probe(Key16 key16, Data& ttData, uint16_t g) {
 
   for (int i = 0; i < ClusterSize; ++i) {
-      if (!tte[i].key)
-        return ttData.empty(), &tte[i];
-      TTEntry::Data rdata = tte[i].data;
-      Key key = tte[i].key;
-
-      if (key == k) {
-        if (rdata.generation() != generation8) {
-             rdata.set_generation(generation8);
-             tte[i].key = key;
-             tte[i].data = rdata;
+      Data rdata;
+      Key16 rkey;
+      read(i, rkey, rdata);
+      if (!rkey) {
+        return ttData.empty(), i;
+      }
+      if (key16 == rkey) {
+        if (rdata.generation() != g) {
+             rdata.set_generation(g);
+             data[i] = rdata;
         }
-        return ttData = rdata, &tte[i];
+        return ttData = rdata, i;
       }
   }
 
   // Find an entry to be replaced according to the replacement strategy
-  TTEntry* replace = tte;
+  int replace = 0;
   // Due to our packed storage format for generation and its cyclic
   // nature we add 259 (256 is the modulus plus 3 to keep the lowest
   // two bound bits from affecting the result) to calculate the entry
   // age correctly even after generation8 overflows into the next cycle.
-  int entryValue = tte[0].data.importance(generation8);
+  int entryValue = data[0].importance(g);
+
   for (int i = 1; i < ClusterSize; ++i) {
-      int newValue = tte[i].data.importance(generation8);
+      int newValue = data[i].importance(g);
+
       if (entryValue > newValue) {
           entryValue = newValue;
-          replace = &tte[i];
+          replace = i;
       }
   }
   return ttData.empty(), replace;
@@ -117,9 +117,9 @@ int TranspositionTable::hashfull() const {
   int cnt = 0;
   for (int i = 0; i < 1000 / ClusterSize; i++)
   {
-      const TTEntry* tte = &table[i].entry[0];
+      const Cluster *cluster = &table[i];
       for (int j = 0; j < ClusterSize; j++)
-          if (tte[j].data.generation() == generation8)
+          if (cluster->data[j].generation() == generation8)
               cnt++;
   }
   return cnt;

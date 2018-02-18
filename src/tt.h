@@ -34,15 +34,35 @@
 /// bound type  2 bit
 /// depth       8 bit
 
-struct TTEntry {
+
+/// A TranspositionTable consists of a power of 2 number of clusters and each
+/// cluster consists of ClusterSize number of TTEntry. Each non-empty entry
+/// contains information of exactly one position. The size of a cluster should
+/// divide the size of a cache line size, to ensure that clusters never cross
+/// cache lines. This ensures best cache performance, as the cacheline is
+/// prefetched, as soon as possible.
+
+class TranspositionTable;
+extern TranspositionTable TT;
+
+class TranspositionTable {
+
+  static const int CacheLineSize = 64;
+  static const int ClusterSize = 3;
+
+  typedef uint16_t Key16;
+
+  struct Cluster;
+
+public:
 
   struct Data {
     Move  move()  const { return Move(uint16_t(data >> 32)); }
     Value value() const { return Value(int64_t(data) >> 48); }
     Value eval()  const { return Value(int32_t(data) >> 16); }
     Depth depth() const { return Depth(int8_t(data) * int(ONE_PLY)); }
-    uint16_t generation() const { return data & 0xFC00; }
     Bound bound() const { return Bound(data & 0x300); }
+    uint16_t generation() const { return data & 0xFC00; }
     void set_generation(uint16_t gen) { data = (data & 0xFFFFFFFFFFFF03FF) | gen; }
     void set_move(Move m) { data = (data & 0xFFFF0000FFFFFFFF) | uint64_t(m) << 32; }
     void set(Move m, Value v, Value ev, Depth d, uint16_t g, Bound b) {
@@ -64,71 +84,95 @@ struct TTEntry {
     }
 
     uint64_t data;
+    friend Cluster;
   };
 
-  void save(Key k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
+private:
+  struct Cluster {
+
+    int probe(Key16 key16, Data& ttData, uint16_t g);
+
+    void save(int i, Key16 k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
 
       assert(d / ONE_PLY * ONE_PLY == d);
+      Data rdata;
+      Key16 rkey;
+      read(i, rkey, rdata);
 
-      if (k != key)
-        data.set(m, v, ev, d, g, b);
-      else if (d / ONE_PLY > data.depth() - 4
-           /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
-              || b == BOUND_EXACT)
-        m ? data.set(m, v, ev, d, g, b) : data.set(v, ev, d, g, b);
+      if (k != rkey)
+        rdata.set(m, v, ev, d, g, b);
+      else if (d / ONE_PLY > rdata.depth() - 4
+            /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
+               || b == BOUND_EXACT)
+        m ? rdata.set(m, v, ev, d, g, b) : rdata.set(v, ev, d, g, b);
       else if (m)
-        data.set_move(m);
+        rdata.set_move(m);
       else return;
 
-      key = k;
-  }
+      write(i, k, rdata);
+    }
+  private:
+    void read(int index, Key16& rkey, Data& rdata) const {
+      rdata = data[index];
+      rkey = key16[index];
+    }
 
-private:
-  friend class TranspositionTable;
-
-  Key key;
-  Data data;
-};
-
-/// A TranspositionTable consists of a power of 2 number of clusters and each
-/// cluster consists of ClusterSize number of TTEntry. Each non-empty entry
-/// contains information of exactly one position. The size of a cluster should
-/// divide the size of a cache line size, to ensure that clusters never cross
-/// cache lines. This ensures best cache performance, as the cacheline is
-/// prefetched, as soon as possible.
-
-class TranspositionTable {
-
-  static const int CacheLineSize = 64;
-  static const int ClusterSize = 4;
-
-  struct Cluster {
-    TTEntry entry[ClusterSize];
+    void write(int index, Key16 rkey, Data rdata) {
+      data[index] = rdata;
+      key16[index] = rkey;
+    }
+    Key16 key16[ClusterSize];
+  public:
+    Data data[ClusterSize];
   };
 
   static_assert(CacheLineSize % sizeof(Cluster) == 0, "Cluster size incorrect");
 
 public:
+  struct Manager {
+    Manager(Key key) {
+      key16 = key >> 48;
+      clusterPtr = TT.first_entry(key);
+    }
+    Data probe() {
+       Data data;
+       index = clusterPtr->probe(key16, data, TT.generation());
+       return data;
+    }
+    void save(Value v, Bound b, Depth d, Move m, Value ev) {
+      clusterPtr->save(index, key16, v, b, d, m, ev, TT.generation());
+    }
+  private:
+    Key16 key16;
+    Cluster *clusterPtr;
+    int index;
+  };
+
  ~TranspositionTable() { free(mem); }
   void new_search() { generation8 += 1024; } // Lower 2 bits are used by Bound
-  uint16_t generation() const { return generation8; }
-  TTEntry* probe(const Key key, TTEntry::Data& ttData) const;
   int hashfull() const;
   void resize(size_t mbSize);
   void clear();
 
-  // The 32 lowest order bits of the key are used to get the index of the cluster
-  TTEntry* first_entry(const Key key) const {
-    return &table[(uint32_t(key) * uint64_t(clusterCount)) >> 32].entry[0];
+  Cluster* first_entry(const Key key) const {
+    return &table[(uint32_t(key) * uint64_t(clusterCount)) >> 32];
   }
 
 private:
+  uint16_t generation() const { return generation8; }
+  /*int probe(Key key, Data& ttData, bool& found) const {
+    return first_entry(key)->probe(key, ttData, found, generation());
+  }
+  void save(int i, Key k, Value v, Bound b, Depth d, Move m, Value ev) {
+    first_entry(k)->save(i, k, v, b, d, m, ev, generation());
+  }*/
+
+  // The 32 lowest order bits of the key are used to get the index of the cluster
+
   size_t clusterCount;
   Cluster* table;
   void* mem;
   uint16_t generation8; // Size must be not bigger than TTEntry::genBound8
 };
-
-extern TranspositionTable TT;
 
 #endif // #ifndef TT_H_INCLUDED
