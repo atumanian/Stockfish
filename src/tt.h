@@ -50,8 +50,6 @@ class TranspositionTable {
   static const int CacheLineSize = 64;
   static const int ClusterSize = 3;
 
-  typedef uint16_t Key16;
-
   struct Cluster;
 
 public:
@@ -90,29 +88,32 @@ public:
 private:
   struct Cluster {
 
-    int probe(Key16 key16, Data& ttData, uint16_t g);
+	static const int KEY_LENGTH = 16;
+	static const uint64_t KEY_MASK = (uint64_t(1) << KEY_LENGTH) - 1;
 
-    void save(int i, Key16 k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
+    int probe(uint64_t shortKey, Data& ttData, uint16_t g);
+
+    void save(int i, Key shortKey, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
 
       assert(d / ONE_PLY * ONE_PLY == d);
-      Data rdata = data[i];
-      Key16 rkey = key16[i];
+      const uint64_t SHIFTED_MASK = KEY_MASK << i * KEY_LENGTH;
+      shortKey <<= i * KEY_LENGTH;
+      Key rshortKey = keys & SHIFTED_MASK;
 
-      if (k != rkey)
-        rdata.set(m, v, ev, d, g, b);
-      else if (d / ONE_PLY > rdata.depth() - 4
+      if (rshortKey != shortKey)
+      {
+        data[i].set(m, v, ev, d, g, b);
+        keys = (keys & ~SHIFTED_MASK) | shortKey;
+      }
+      else if (d / ONE_PLY > data[i].depth() - 4
             /* || g != (genBound8 & 0xFC) // Matching non-zero keys are already refreshed by probe() */
                || b == BOUND_EXACT)
-        m ? rdata.set(m, v, ev, d, g, b) : rdata.set(v, ev, d, g, b);
+        m ? data[i].set(m, v, ev, d, g, b) : data[i].set(v, ev, d, g, b);
       else if (m)
-        rdata.set_move(m);
-      else return;
-
-      key16[i] = k;
-      data[i] = rdata;
+        data[i].set_move(m);
     }
   private:
-    Key16 key16[ClusterSize];
+    uint64_t keys;
   public:
     Data data[ClusterSize];
   };
@@ -122,19 +123,19 @@ private:
 public:
   struct Manager {
     Manager(Key key) {
-      key16 = key >> 48;
+      shortKey = key >> 64 - Cluster::KEY_LENGTH;
       clusterPtr = TT.first_entry(key);
     }
     Data probe() {
        Data data;
-       index = clusterPtr->probe(key16, data, TT.generation());
+       index = clusterPtr->probe(shortKey, data, TT.generation());
        return data;
     }
     void save(Value v, Bound b, Depth d, Move m, Value ev) {
-      clusterPtr->save(index, key16, v, b, d, m, ev, TT.generation());
+      clusterPtr->save(index, shortKey, v, b, d, m, ev, TT.generation());
     }
   private:
-    Key16 key16;
+    uint64_t shortKey;
     Cluster *clusterPtr;
     int index;
   };

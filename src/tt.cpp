@@ -71,20 +71,22 @@ void TranspositionTable::clear() {
 /// minus 8 times its relative age. TTEntry t1 is considered more valuable than
 /// TTEntry t2 if its replace value is greater than that of t2.
 
-int TranspositionTable::Cluster::probe(Key16 k, Data& ttData, uint16_t g) {
+int TranspositionTable::Cluster::probe(uint64_t shortKey, Data& ttData, uint16_t g) {
+  uint64_t rkeys = keys;
 
   for (int i = 0; i < ClusterSize; ++i) {
-      Data rdata = data[i];
-      Key16 rkey = key16[i];
+	  Key rkey = rkeys & (KEY_MASK << i * KEY_LENGTH);
       if (!rkey) {
         return ttData.empty(), i;
       }
-      if (k == rkey) {
-        if (rdata.generation() != g) {
-             rdata.set_generation(g);
-             data[i] = rdata;
+      rkey >>= i * KEY_LENGTH;
+      if (rkey == shortKey) {
+    	ttData = data[i];
+        if (ttData.generation() != g) {
+             ttData.set_generation(g);
+             data[i] = ttData;
         }
-        return ttData = rdata, i;
+        return i;
       }
   }
 
