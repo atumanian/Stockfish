@@ -747,7 +747,7 @@ namespace {
         MovePicker mp(pos, ttMove, rbeta - ss->staticEval, &thisThread->captureHistory);
 
         while ((move = mp.next_move()) != MOVE_NONE)
-            if (move == ttMove || pos.legal(move))
+            if (pos.legal(move))
             {
                 ss->currentMove = move;
                 ss->contHistory = &thisThread->contHistory[pos.moved_piece(move)][to_sq(move)];
@@ -842,7 +842,8 @@ moves_loop: // When in check, search starts from here
       // reduced search on on all the other moves but the ttMove and if the
       // result is lower than ttValue minus a margin then we will extend the ttMove.
       if (    singularExtensionNode
-          &&  move == ttMove)
+              &&  move == ttMove
+              &&  pos.legal(move))
       {
           Value rBeta = std::max(ttValue - 2 * depth / ONE_PLY, -VALUE_MATE);
           ss->excludedMove = move;
@@ -906,7 +907,7 @@ moves_loop: // When in check, search starts from here
       prefetch(TT.first_entry(pos.key_after(move)));
 
       // Check for legality just before making the move
-      if (move != ttMove && !rootNode && !pos.legal(move))
+      if (!rootNode && !pos.legal(move))
       {
           ss->moveCount = --moveCount;
           continue;
@@ -1290,7 +1291,7 @@ moves_loop: // When in check, search starts from here
       prefetch(TT.first_entry(pos.key_after(move)));
 
       // Check for legality just before making the move
-      if (move != ttMove && !pos.legal(move))
+      if (!pos.legal(move))
       {
           moveCount--;
           continue;
