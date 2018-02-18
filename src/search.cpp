@@ -558,8 +558,6 @@ namespace {
     ttMove =  rootNode ? thisThread->rootMoves[thisThread->PVIdx].pv[0]
             : ttData.move();
 
-    assert(ttMove == MOVE_NONE || (pos.pseudo_legal(ttMove) && pos.legal(ttMove)));
-
     // At non-PV nodes we check for an early TT cutoff
     if (  !PvNode
         && ttData.depth() >= depth
@@ -1182,8 +1180,6 @@ moves_loop: // When in check, search starts from here
     tte = TT.probe(posKey, ttData);
     ttMove = ttData.move();
     ttValue = value_from_tt(ttData.value(), ss->ply);
-
-    assert(ttMove == MOVE_NONE || (pos.pseudo_legal(ttMove) && pos.legal(ttMove)));
 
     if (  !PvNode
         && ttData.depth() >= ttDepth
