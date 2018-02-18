@@ -95,9 +95,8 @@ private:
     void save(int i, Key16 k, Value v, Bound b, Depth d, Move m, Value ev, uint16_t g) {
 
       assert(d / ONE_PLY * ONE_PLY == d);
-      Data rdata;
-      Key16 rkey;
-      read(i, rkey, rdata);
+      Data rdata = data[i];
+      Key16 rkey = key16[i];
 
       if (k != rkey)
         rdata.set(m, v, ev, d, g, b);
@@ -109,18 +108,10 @@ private:
         rdata.set_move(m);
       else return;
 
-      write(i, k, rdata);
+      key16[i] = k;
+      data[i] = rdata;
     }
   private:
-    void read(int index, Key16& rkey, Data& rdata) const {
-      rdata = data[index];
-      rkey = key16[index];
-    }
-
-    void write(int index, Key16 rkey, Data rdata) {
-      data[index] = rdata;
-      key16[index] = rkey;
-    }
     Key16 key16[ClusterSize];
   public:
     Data data[ClusterSize];
