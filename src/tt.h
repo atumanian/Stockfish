@@ -124,7 +124,6 @@ public:
 
 private:
   size_t clusterCount;
-  Key clusterIndexMask;
   Cluster* table;
   void* mem;
   uint16_t generation8; // Size must be not bigger than TTEntry::genBound8

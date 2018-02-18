@@ -39,7 +39,6 @@ void TranspositionTable::resize(size_t mbSize) {
       return;
 
   clusterCount = newClusterCount;
-  clusterIndexMask = newClusterCount - 1;
 
   free(mem);
   mem = malloc(clusterCount * sizeof(Cluster) + CacheLineSize - 1);
