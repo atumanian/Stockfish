@@ -71,6 +71,10 @@ public:
   ButterflyHistory mainHistory;
   CapturePieceToHistory captureHistory;
   ContinuationHistory contHistory;
+
+  void increment(std::atomic<uint64_t> Thread::* member) {
+	  (this->*member).store((this->*member).load(std::memory_order_relaxed) + 1, std::memory_order_relaxed);
+  }
 };
 
 
