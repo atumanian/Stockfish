@@ -2,7 +2,7 @@
   Stockfish, a UCI chess playing engine derived from Glaurung 2.1
   Copyright (C) 2004-2008 Tord Romstad (Glaurung author)
   Copyright (C) 2008-2015 Marco Costalba, Joona Kiiski, Tord Romstad
-  Copyright (C) 2015-2017 Marco Costalba, Joona Kiiski, Gary Linscott, Tord Romstad
+  Copyright (C) 2015-2018 Marco Costalba, Joona Kiiski, Gary Linscott, Tord Romstad
 
   Stockfish is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -147,7 +147,7 @@ void ThreadPool::clear() {
 
   main()->callsCnt = 0;
   main()->previousScore = VALUE_INFINITE;
-  main()->previousTimeReduction = 1;
+  main()->previousTimeReduction = 1.0;
 }
 
 /// ThreadPool::start_thinking() wakes up main thread waiting in idle_loop() and
@@ -187,12 +187,10 @@ void ThreadPool::start_thinking(Position& pos, StateListPtr& states,
 
   for (Thread* th : *this)
   {
-      th->nodes = th->tbHits = 0;
+      th->nodes = th->tbHits = th->nmp_ply = th->nmp_odd = 0;
       th->rootDepth = th->completedDepth = DEPTH_ZERO;
       th->rootMoves = rootMoves;
       th->rootPos.set(pos.fen(), pos.is_chess960(), &setupStates->back(), th);
-      th->nmp_ply = 0;
-      th->pair = -1;
   }
 
   setupStates->back() = tmp;
