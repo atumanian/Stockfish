@@ -167,6 +167,7 @@ namespace {
   const Score CloseEnemies      = S(  7,  0);
   const Score Hanging           = S( 52, 30);
   const Score HinderPassedPawn  = S(  8,  1);
+  const Score KnightOnQueen     = S( 21, 11);
   const Score LongRangedBishop  = S( 22,  0);
   const Score MinorBehindPawn   = S( 16,  0);
   const Score PawnlessFlank     = S( 20, 80);
@@ -482,22 +483,20 @@ namespace {
             score -= make_score(kingDanger * kingDanger / 4096, kingDanger / 16);
         }
     }
+
+    Bitboard kf = KingFlank[file_of(ksq)];
+
     // Penalty when our king is on a pawnless flank
-    if (!(pos.pieces(PAWN) & KingFlank[file_of(ksq)]))
+    if (!(pos.pieces(PAWN) & kf))
         score -= PawnlessFlank;
 
-    // King tropism: firstly, find attacked squares in our king flank
-    b = attackedBy[Them][ALL_PIECES] & KingFlank[file_of(ksq)] & Camp;
+    // Find the squares that opponent attacks in our king flank, and the squares
+    // which are attacked twice in that flank but not defended by our pawns.
+    b1 = attackedBy[Them][ALL_PIECES] & kf & Camp;
+    b2 = b1 & attackedBy2[Them] & ~attackedBy[Us][PAWN];
 
-    assert(((Us == WHITE ? b << 4 : b >> 4) & b) == 0);
-    assert(popcount(Us == WHITE ? b << 4 : b >> 4) == popcount(b));
-
-    // Secondly, add the squares which are attacked twice in that flank and
-    // which are not defended by our pawns.
-    b =  (Us == WHITE ? b << 4 : b >> 4)
-       | (b & attackedBy2[Them] & ~attackedBy[Us][PAWN]);
-
-    score -= CloseEnemies * popcount(b);
+    // King tropism, to anticipate slow motion attacks on our king
+    score -= CloseEnemies * (popcount(b1) + popcount(b2));
 
     if (T)
         Trace::add(KING, Us, score);
@@ -596,6 +595,17 @@ namespace {
        | (attackedBy[Us][ROOK  ] & attackedBy[Them][QUEEN] & ~attackedBy[Them][QUEEN_DIAGONAL]);
 
     score += ThreatOnQueen * popcount(b & safeThreats);
+
+    // Bonus for knight threats on the next moves against enemy queen
+    if (pos.count<QUEEN>(Them) == 1)
+    {
+        b =   pos.attacks_from<KNIGHT>(pos.square<QUEEN>(Them))
+           &  attackedBy[Us][KNIGHT]
+           & ~pos.pieces(Us, PAWN, KING)
+           & ~stronglyProtected;
+
+        score += KnightOnQueen * popcount(b);
+    }
 
     if (T)
         Trace::add(THREAT, Us, score);
@@ -728,12 +738,9 @@ namespace {
     behind |= (Us == WHITE ? behind >>  8 : behind <<  8);
     behind |= (Us == WHITE ? behind >> 16 : behind << 16);
 
-    // Since SpaceMask[Us] is fully on our half of the board...
-    assert(unsigned(safe >> (Us == WHITE ? 32 : 0)) == 0);
-
-    // ...count safe + (behind & safe) with a single popcount.
-    int bonus = popcount((Us == WHITE ? safe << 32 : safe >> 32) | (behind & safe));
+    int bonus = popcount(safe) + popcount(behind & safe);
     int weight = pos.count<ALL_PIECES>(Us) - 2 * pe->open_files();
+
     Score score = make_score(bonus * weight * weight / 16, 0);
 
     if (T)
@@ -880,7 +887,8 @@ namespace {
         Trace::add(TOTAL, score);
     }
 
-    return pos.side_to_move() == WHITE ? v : -v; // Side to move point of view
+    return  (pos.side_to_move() == WHITE ? v : -v) // Side to move point of view
+           + Eval::Tempo;
   }
 
 } // namespace
@@ -890,7 +898,7 @@ namespace {
 /// evaluation of the position from the point of view of the side to move.
 
 Value Eval::evaluate(const Position& pos) {
-  return Evaluation<NO_TRACE>(pos).value() + Eval::Tempo;
+  return Evaluation<NO_TRACE>(pos).value();
 }
 
 
@@ -904,7 +912,7 @@ std::string Eval::trace(const Position& pos) {
 
   Eval::Contempt = SCORE_ZERO; // Reset any dynamic contempt
 
-  Value v = Evaluation<TRACE>(pos).value() + Eval::Tempo;
+  Value v = Evaluation<TRACE>(pos).value();
 
   v = pos.side_to_move() == WHITE ? v : -v; // Trace scores are from white's point of view
 
