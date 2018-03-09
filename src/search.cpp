@@ -313,6 +313,8 @@ void Thread::search() {
   Eval::Contempt = (us == WHITE ?  make_score(ct, ct / 2)
                                 : -make_score(ct, ct / 2));
 
+  bool skipIterations = true;
+
   // Iterative deepening loop until requested to stop or the target depth is reached
   while (   (rootDepth += ONE_PLY) < DEPTH_MAX
          && !Threads.stop
@@ -320,7 +322,8 @@ void Thread::search() {
   {
       // Distribute search depths across the helper threads
       int i = idx % 20;
-      if (((rootDepth / ONE_PLY + rootPos.game_ply() + SkipPhase[i]) / SkipSize[i]) % 2)
+      if (((rootDepth / ONE_PLY + rootPos.game_ply() + SkipPhase[i]) / SkipSize[i]) % 2
+              && (skipIterations || !mainThread))
           continue;  // Retry with an incremented rootDepth
 
       // Age out PV variability metric
@@ -455,9 +458,12 @@ void Thread::search() {
               double unstablePvFactor = 1.0 + mainThread->bestMoveChanges;
               unstablePvFactor *= std::pow(mainThread->previousTimeReduction, 0.528) / timeReduction;
 
+              double usedTimePercentage = Time.elapsed()
+                      / (Time.optimum() * unstablePvFactor * improvingFactor / 581);
+
               // Stop the search if we have only one legal move, or if available time elapsed
               if (   rootMoves.size() == 1
-                  || Time.elapsed() > Time.optimum() * unstablePvFactor * improvingFactor / 581)
+                  || usedTimePercentage > 1.0)
               {
                   // If we are allowed to ponder do not stop the search now but
                   // keep pondering until the GUI sends "ponderhit" or "stop".
@@ -466,6 +472,7 @@ void Thread::search() {
                   else
                       Threads.stop = true;
               }
+              else skipIterations = usedTimePercentage <= 0.7;
           }
   }
 
