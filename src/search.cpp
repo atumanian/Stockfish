@@ -344,17 +344,31 @@ void Thread::search() {
           // Reset aspiration window starting size
           if (rootDepth >= 5 * ONE_PLY)
           {
-              delta = Value(18);
-              alpha = std::max(rootMoves[PVIdx].previousScore - delta,-VALUE_INFINITE);
-              beta  = std::min(rootMoves[PVIdx].previousScore + delta, VALUE_INFINITE);
 
-              ct =  Options["Contempt"] * PawnValueEg / 100; // From centipawns
+              Value previousScore = rootMoves[PVIdx].previousScore;
+              bool negative = previousScore < 0;
+
+              if (negative)
+                  previousScore = -previousScore;
+
+              alpha = std::max(previousScore - 18, -VALUE_INFINITE);
+              beta  = std::min(previousScore + int(std::round(9 * (1 + std::min(cosh(double(previousScore) / 240), double(VALUE_INFINITE))))), VALUE_INFINITE);
+              delta = (beta - alpha) / 2;
+
+              if (negative)
+              {
+                  Value oldAlpha = alpha;
+                  alpha = -beta;
+                  beta = -oldAlpha;
+              }
+
+              /*ct =  Options["Contempt"] * PawnValueEg / 100; // From centipawns
 
               // Adjust contempt based on current bestValue (dynamic contempt)
               ct += int(std::round(48 * atan(float(bestValue) / 128)));
 
               Eval::Contempt = (us == WHITE ?  make_score(ct, ct / 2)
-                                            : -make_score(ct, ct / 2));
+                                            : -make_score(ct, ct / 2));*/
           }
 
           // Start with a small aspiration window and, in the case of a fail
