@@ -29,7 +29,7 @@
 #include "material.h"
 #include "pawns.h"
 
-std::atomic<Score> Eval::Contempt;
+std::atomic<Value> Eval::Contempt;
 
 namespace Trace {
 
@@ -867,7 +867,6 @@ namespace {
             + space<  WHITE>() - space<  BLACK>();
 
     score += initiative(eg_value(score));
-    score += Eval::Contempt;
 
     // Interpolate between a middlegame and a (scaled by 'sf') endgame score
     ScaleFactor sf = scale_factor(eg_value(score));
@@ -875,6 +874,7 @@ namespace {
        + eg_value(score) * int(PHASE_MIDGAME - me->game_phase()) * sf / SCALE_FACTOR_NORMAL;
 
     v /= int(PHASE_MIDGAME);
+    v += Eval::Contempt;
 
     // In case of tracing add all remaining individual evaluation terms
     if (T)
@@ -909,7 +909,7 @@ std::string Eval::trace(const Position& pos) {
 
   std::memset(scores, 0, sizeof(scores));
 
-  Eval::Contempt = SCORE_ZERO; // Reset any dynamic contempt
+  Eval::Contempt = VALUE_ZERO; // Reset any dynamic contempt
 
   Value v = Evaluation<TRACE>(pos).value();
 

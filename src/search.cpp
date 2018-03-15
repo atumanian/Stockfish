@@ -309,9 +309,8 @@ void Thread::search() {
 
   multiPV = std::min(multiPV, rootMoves.size());
 
-  int ct = Options["Contempt"] * PawnValueEg / 100; // From centipawns
-  Eval::Contempt = (us == WHITE ?  make_score(ct, ct / 2)
-                                : -make_score(ct, ct / 2));
+  int ct = 21;
+  Eval::Contempt = (us == WHITE ?  Value(ct) : Value(-ct));
 
   // Iterative deepening loop until requested to stop or the target depth is reached
   while (   (rootDepth += ONE_PLY) < DEPTH_MAX
@@ -348,13 +347,12 @@ void Thread::search() {
               alpha = std::max(rootMoves[PVIdx].previousScore - delta,-VALUE_INFINITE);
               beta  = std::min(rootMoves[PVIdx].previousScore + delta, VALUE_INFINITE);
 
-              ct =  Options["Contempt"] * PawnValueEg / 100; // From centipawns
+              ct =  21;
 
               // Adjust contempt based on current bestValue (dynamic contempt)
-              ct += int(std::round(48 * atan(float(bestValue) / 128)));
+              ct += int(std::round(36 * atan(float(bestValue) / 128)));
 
-              Eval::Contempt = (us == WHITE ?  make_score(ct, ct / 2)
-                                            : -make_score(ct, ct / 2));
+              Eval::Contempt = (us == WHITE ?  Value(ct) : Value(-ct));
           }
 
           // Start with a small aspiration window and, in the case of a fail
