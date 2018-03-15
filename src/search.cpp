@@ -98,6 +98,8 @@ namespace {
     Move best = MOVE_NONE;
   };
 
+  Value DrawScore[COLOR_NB];
+
   template <NodeType NT>
   Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode, bool skipEarlyPruning);
 
@@ -309,8 +311,9 @@ void Thread::search() {
 
   multiPV = std::min(multiPV, rootMoves.size());
 
-  int ct = 21;
-  Eval::Contempt = (us == WHITE ?  Value(ct) : Value(-ct));
+  Value correction = Value(21);
+  DrawScore[us] = -correction;
+  DrawScore[~us] = correction;
 
   // Iterative deepening loop until requested to stop or the target depth is reached
   while (   (rootDepth += ONE_PLY) < DEPTH_MAX
@@ -344,15 +347,14 @@ void Thread::search() {
           if (rootDepth >= 5 * ONE_PLY)
           {
               delta = Value(18);
-              alpha = std::max(rootMoves[PVIdx].previousScore - delta,-VALUE_INFINITE);
-              beta  = std::min(rootMoves[PVIdx].previousScore + delta, VALUE_INFINITE);
 
-              ct =  21;
+              Value oldCorrection = correction;
+              correction = Value(21 + int(std::round(36 * atan(float(bestValue + correction) / 128))));
+              DrawScore[us] = -correction;
+              DrawScore[~us] = correction;
 
-              // Adjust contempt based on current bestValue (dynamic contempt)
-              ct += int(std::round(36 * atan(float(bestValue) / 128)));
-
-              Eval::Contempt = (us == WHITE ?  Value(ct) : Value(-ct));
+              alpha = std::max(rootMoves[PVIdx].previousScore + oldCorrection - correction - delta,-VALUE_INFINITE);
+              beta  = std::min(rootMoves[PVIdx].previousScore + oldCorrection - correction + delta, VALUE_INFINITE);
           }
 
           // Start with a small aspiration window and, in the case of a fail
@@ -535,7 +537,7 @@ namespace {
         if (   Threads.stop.load(std::memory_order_relaxed)
             || pos.is_draw(ss->ply)
             || ss->ply >= MAX_PLY)
-            return (ss->ply >= MAX_PLY && !inCheck) ? evaluate(pos) : VALUE_DRAW;
+            return (ss->ply >= MAX_PLY && !inCheck) ? evaluate(pos) : DrawScore[pos.side_to_move()];
 
         // Step 3. Mate distance pruning. Even if we mate at the next move our score
         // would be at best mate_in(ss->ply+1), but if alpha is already bigger because
@@ -1115,7 +1117,7 @@ moves_loop: // When in check, search starts from here
 
     if (!moveCount)
         bestValue = excludedMove ? alpha
-                   :     inCheck ? mated_in(ss->ply) : VALUE_DRAW;
+                   :     inCheck ? mated_in(ss->ply) : DrawScore[pos.side_to_move()];
     else if (bestMove)
     {
         // Quiet best move: update move sorting heuristics
@@ -1186,7 +1188,7 @@ moves_loop: // When in check, search starts from here
     // Check for an immediate draw or maximum ply reached
     if (   pos.is_draw(ss->ply)
         || ss->ply >= MAX_PLY)
-        return (ss->ply >= MAX_PLY && !inCheck) ? evaluate(pos) : VALUE_DRAW;
+        return (ss->ply >= MAX_PLY && !inCheck) ? evaluate(pos) : DrawScore[pos.side_to_move()];
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
 
