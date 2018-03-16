@@ -833,7 +833,7 @@ namespace {
     // If we have a specialized evaluation function for the current material
     // configuration, call it and return.
     if (me->specialized_eval_exists())
-        return me->evaluate(pos);
+        return pos.side_to_move() == WHITE ? me->evaluate(pos) + Eval::Contempt : me->evaluate(pos) - Eval::Contempt;
 
     // Initialize score by reading the incrementally updated scores included in
     // the position object (material + piece square tables) and the material
