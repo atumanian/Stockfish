@@ -215,12 +215,12 @@ private:
 };
 
 template <class Iterator>
-void Trace<Iterator>::init(const Position& pos, const Iterator begin, const Iterator end) {
+void Trace<Iterator>::init(const Position& pos, const Iterator begin, const Iterator _end) {
     rootPly = pos.game_ply();
     isChess960 = pos.is_chess960();
     ply = -1;
     cur = begin;
-    Trace::end = end;
+    end = _end;
     lastBestMove = MOVE_NONE;
     lastPoint = Point();
 }
@@ -279,7 +279,7 @@ inline Value Trace<Iterator>::search(Position& pos, Stack* ss,
 template <class Iterator>
 template <NodeType NT, bool TRACE>
 inline Value Trace<Iterator>::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
-    if (!TRACE || !tracingMove((ss-1)->currentMove) && (lastPoint.clear(), true))
+    if (!TRACE || (!tracingMove((ss-1)->currentMove) && (lastPoint.clear(), true)))
         return ::qsearch<NT, false>(pos, ss, alpha, beta, depth);
 
     assert(ss->ply == ply + 1);
