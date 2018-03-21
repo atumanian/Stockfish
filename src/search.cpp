@@ -1455,7 +1455,7 @@ moves_loop: // When in check, search starts from here
         || ss->ply >= MAX_PLY)
     {
         if (TRACE)
-            trace.on_return("draw");
+            trace.on_return(pos.is_draw(ss->ply) ? "draw" : "max_ply");
 
         return (ss->ply >= MAX_PLY && !inCheck) ? evaluate(pos) : VALUE_DRAW;
     }
