@@ -193,7 +193,7 @@ struct Trace {
     template <NodeType NT, bool TRACE = false>
     inline Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode, bool skipEarlyPruning);
 
-    template <NodeType NT, bool inCheck = false, bool TRACE = false>
+    template <NodeType NT, bool TRACE = false>
     inline Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth = DEPTH_ZERO);
 
     void on_call(const Point& point);
@@ -277,10 +277,10 @@ inline Value Trace<Iterator>::search(Position& pos, Stack* ss,
   }
 
 template <class Iterator>
-template <NodeType NT, bool inCheck, bool TRACE>
+template <NodeType NT, bool TRACE>
 inline Value Trace<Iterator>::qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
     if (!TRACE || !tracingMove((ss-1)->currentMove) && (lastPoint.clear(), true))
-        return ::qsearch<NT, inCheck, false>(pos, ss, alpha, beta, depth);
+        return ::qsearch<NT, false>(pos, ss, alpha, beta, depth);
 
     assert(ss->ply == ply + 1);
 
@@ -290,7 +290,7 @@ inline Value Trace<Iterator>::qsearch(Position& pos, Stack* ss, Value alpha, Val
     lastPoint.clear();
     ++cur;
     ++ply;
-    Value v = ::qsearch<NT, inCheck, true>(pos, ss, alpha, beta, depth);
+    Value v = ::qsearch<NT, true>(pos, ss, alpha, beta, depth);
     --ply;
     --cur;
     sync_cout << "trace exit ";
