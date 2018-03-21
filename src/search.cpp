@@ -31,8 +31,8 @@
 #include "movepick.h"
 #include "position.h"
 #include "search.h"
-#include "timeman.h"
 #include "thread.h"
+#include "timeman.h"
 #include "tt.h"
 #include "uci.h"
 #include "syzygy/tbprobe.h"
@@ -64,12 +64,11 @@ namespace {
   enum NodeType { NonPV, PV };
 
   // Sizes and phases of the skip-blocks, used for distributing search depths across the threads
-  const int SkipSize[]  = { 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4 };
-  const int SkipPhase[] = { 0, 1, 0, 1, 2, 3, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5, 6, 7 };
+  constexpr int SkipSize[]  = { 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4 };
+  constexpr int SkipPhase[] = { 0, 1, 0, 1, 2, 3, 0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5, 6, 7 };
 
   // Razor and futility margins
-  const int RazorMargin1 = 590;
-  const int RazorMargin2 = 604;
+  constexpr int RazorMargin[] = {0, 590, 604};
   Value futility_margin(Depth d, bool improving) {
     return Value((175 - 50 * improving) * d / ONE_PLY);
   }
@@ -102,7 +101,7 @@ namespace {
   template <NodeType NT, bool TRACE = false>
   Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode, bool skipEarlyPruning);
 
-  template <NodeType NT, bool InCheck, bool TRACE = false>
+  template <NodeType NT, bool TRACE = false>
   Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth = DEPTH_ZERO);
 
   Value value_to_tt(Value v, int ply);
@@ -635,12 +634,12 @@ void Thread::search() {
                      timeReduction *= 1.25;
 
               // Use part of the gained time from a previous stable move for the current move
-              double unstablePvFactor = 1.0 + mainThread->bestMoveChanges;
-              unstablePvFactor *= std::pow(mainThread->previousTimeReduction, 0.528) / timeReduction;
+              double bestMoveInstability = 1.0 + mainThread->bestMoveChanges;
+              bestMoveInstability *= std::pow(mainThread->previousTimeReduction, 0.528) / timeReduction;
 
               // Stop the search if we have only one legal move, or if available time elapsed
               if (   rootMoves.size() == 1
-                  || Time.elapsed() > Time.optimum() * unstablePvFactor * improvingFactor / 581)
+                  || Time.elapsed() > Time.optimum() * bestMoveInstability * improvingFactor / 581)
               {
                   // If we are allowed to ponder do not stop the search now but
                   // keep pondering until the GUI sends "ponderhit" or "stop".
@@ -669,7 +668,11 @@ namespace {
   template <NodeType NT, bool TRACE = false>
   Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode, bool skipEarlyPruning) {
 
-    const bool PvNode = NT == PV;
+    // Use quiescence search when needed
+    if (depth < ONE_PLY)
+        return qsearch<NT>(pos, ss, alpha, beta);
+
+    constexpr bool PvNode = NT == PV;
     const bool rootNode = PvNode && ss->ply == 0;
 
     assert(-VALUE_INFINITE <= alpha && alpha < beta && beta <= VALUE_INFINITE);
@@ -850,7 +853,7 @@ namespace {
     if (inCheck)
     {
         ss->staticEval = eval = VALUE_NONE;
-        improving = true;
+        improving = false;
         goto moves_loop;
     }
     else if (ttHit)
@@ -882,37 +885,22 @@ namespace {
 
     // Step 7. Razoring (skipped when in check)
     if (  !PvNode
-        && depth <= 2 * ONE_PLY)
+        && depth < 3 * ONE_PLY
+        && eval <= alpha - RazorMargin[depth / ONE_PLY])
     {
-        if (   depth == ONE_PLY
-            && eval + RazorMargin1 <= alpha)
+        Value ralpha = alpha - (depth >= 2 * ONE_PLY) * RazorMargin[depth / ONE_PLY];
+
+        if (TRACE)
+            trace.on_call("razoring");
+
+        Value v = trace.qsearch<NonPV>(pos, ss, ralpha, ralpha+1);
+
+        if (depth < 2 * ONE_PLY || v <= ralpha)
         {
-            if (TRACE)
-                trace.on_call("razoring");
-
-            Value v = qsearch<NonPV, false>(pos, ss, alpha, alpha+1);
-
             if (TRACE)
                 trace.on_return("razoring");
 
             return v;
-        }
-        else if (eval + RazorMargin2 <= alpha)
-        {
-            Value ralpha = alpha - RazorMargin2;
-
-            if (TRACE)
-                trace.on_call("razoring");
-
-            Value v = qsearch<NonPV, false>(pos, ss, ralpha, ralpha+1);
-
-            if (v <= ralpha)
-            {
-                if (TRACE)
-                    trace.on_return("razoring");
-
-                return v;
-            }
         }
     }
 
@@ -947,8 +935,8 @@ namespace {
         if (TRACE)
             trace.on_call("nmp");
 
-        Value nullValue = depth-R < ONE_PLY ? -trace.qsearch<NonPV, false, TRACE>(pos, ss+1, -beta, -beta+1)
-                                            : - trace.search<NonPV, TRACE>(pos, ss+1, -beta, -beta+1, depth-R, !cutNode, true);
+        Value nullValue = -trace.search<NonPV, TRACE>(pos, ss+1, -beta, -beta+1, depth-R, !cutNode, true);
+
         pos.undo_null_move();
 
         if (nullValue >= beta)
@@ -970,13 +958,10 @@ namespace {
             thisThread->nmp_ply = ss->ply + 3 * (depth-R) / 4;
             thisThread->nmp_odd = ss->ply % 2;
 
-            Value v;
-
             if (TRACE)
                 trace.on_call("nmp_ver");
 
-            v = depth-R < ONE_PLY ? trace.qsearch<NonPV, false, TRACE>(pos, ss, beta-1, beta)
-                                  :  trace.search<NonPV, TRACE>(pos, ss, beta-1, beta, depth-R, false, true);
+            Value v = trace.search<NonPV, TRACE>(pos, ss, beta-1, beta, depth-R, false, true);
 
             thisThread->nmp_odd = thisThread->nmp_ply = 0;
 
@@ -999,12 +984,12 @@ namespace {
     {
         assert(is_ok((ss-1)->currentMove));
 
-        Value rbeta = std::min(beta + 200, VALUE_INFINITE);
+        Value rbeta = std::min(beta + 216 - 48 * improving, VALUE_INFINITE);
         MovePicker mp(pos, ttMove, rbeta - ss->staticEval, &thisThread->captureHistory);
         int probCutCount = 0;
 
         while (  (move = mp.next_move()) != MOVE_NONE
-               && probCutCount < depth / ONE_PLY - 3)
+               && probCutCount < 3)
             if (pos.legal(move))
             {
                 probCutCount++;
@@ -1016,23 +1001,17 @@ namespace {
 
                 pos.do_move(move, st);
 
-                // Perform a preliminary search at depth 1 to verify that the move holds.
-                // We will only do this search if the depth is not 5, thus avoiding two
-                // searches at depth 1 in a row.
-                if (depth != 5 * ONE_PLY)
+                if (TRACE)
+                    trace.on_call("probcut_pre");
+
+                // Perform a preliminary qsearch to verify that the move holds
+                value = -trace.qsearch<NonPV, TRACE>(pos, ss+1, -rbeta, -rbeta+1);
+
+                // If the qsearch held perform the regular search
+                if (value >= rbeta)
                 {
                     if (TRACE)
-                        trace.on_call("probcut_pre");
-
-                    value = -trace.search<NonPV, TRACE>(pos, ss+1, -rbeta, -rbeta+1, ONE_PLY, !cutNode, true);
-                }
-
-                // If the first search was skipped or was performed and held, perform
-                // the regular search.
-                if (depth == 5 * ONE_PLY || value >= rbeta)
-                {
-                    if (TRACE)
-                	    trace.on_call("probcut");
+                        trace.on_call("probcut");
 
                     value = -trace.search<NonPV, TRACE>(pos, ss+1, -rbeta, -rbeta+1, depth - 4 * ONE_PLY, !cutNode, false);
                 }
@@ -1293,10 +1272,7 @@ moves_loop: // When in check, search starts from here
 
       // Step 17. Full depth search when LMR is skipped or fails high
       if (doFullDepthSearch)
-          value = newDepth <   ONE_PLY ?
-                  givesCheck ? -trace.qsearch<NonPV, true, TRACE>(pos, ss+1, -(alpha+1), -alpha)
-    		                 : -trace.qsearch<NonPV, false, TRACE>(pos, ss+1, -(alpha+1), -alpha)
-    		                 : -trace.search<NonPV, TRACE>(pos, ss+1, -(alpha+1), -alpha, newDepth, !cutNode, false);
+          value = -trace.search<NonPV, TRACE>(pos, ss+1, -(alpha+1), -alpha, newDepth, !cutNode, false);
 
       // For PV nodes only, do a full PV search on the first move or after a fail
       // high (in the latter case search only if value < beta), otherwise let the
@@ -1306,10 +1282,7 @@ moves_loop: // When in check, search starts from here
           (ss+1)->pv = pv;
           (ss+1)->pv[0] = MOVE_NONE;
 
-          value = newDepth <   ONE_PLY ?
-                  givesCheck ? -trace.qsearch<PV, true, TRACE>(pos, ss+1, -beta, -alpha)
-                             : -trace.qsearch<PV, false, TRACE>(pos, ss+1, -beta, -alpha)
-                             : -trace.search<PV, TRACE>(pos, ss+1, -beta, -alpha, newDepth, false, false);
+          value = -trace.search<PV, TRACE>(pos, ss+1, -beta, -alpha, newDepth, false, false);
       }
 
       // Step 18. Undo move
@@ -1445,17 +1418,15 @@ moves_loop: // When in check, search starts from here
 
   // qsearch() is the quiescence search function, which is called by the main
   // search function with depth zero, or recursively with depth less than ONE_PLY.
-
-  template <NodeType NT, bool InCheck, bool TRACE>
+  template <NodeType NT, bool TRACE>
   Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth) {
 
-    const bool PvNode = NT == PV;
+    constexpr bool PvNode = NT == PV;
 
     assert(alpha >= -VALUE_INFINITE && alpha < beta && beta <= VALUE_INFINITE);
     assert(PvNode || (alpha == beta - 1));
     assert(depth <= DEPTH_ZERO);
     assert(depth / ONE_PLY * ONE_PLY == depth);
-    assert(InCheck == bool(pos.checkers()));
 
     Move pv[MAX_PLY+1];
     StateInfo st;
@@ -1464,7 +1435,7 @@ moves_loop: // When in check, search starts from here
     Move ttMove, move, bestMove;
     Depth ttDepth;
     Value bestValue, value, ttValue, futilityValue, futilityBase, oldAlpha;
-    bool ttHit, givesCheck, evasionPrunable;
+    bool ttHit, inCheck, givesCheck, evasionPrunable;
     int moveCount;
 
     if (PvNode)
@@ -1476,18 +1447,17 @@ moves_loop: // When in check, search starts from here
 
     (ss+1)->ply = ss->ply + 1;
     ss->currentMove = bestMove = MOVE_NONE;
+    inCheck = pos.checkers();
     moveCount = 0;
 
     // Check for an immediate draw or maximum ply reached
     if (   pos.is_draw(ss->ply)
         || ss->ply >= MAX_PLY)
     {
-    	Value v = (ss->ply >= MAX_PLY && !InCheck) ? evaluate(pos) : VALUE_DRAW;
-
         if (TRACE)
             trace.on_return("draw");
 
-        return v;
+        return (ss->ply >= MAX_PLY && !inCheck) ? evaluate(pos) : VALUE_DRAW;
     }
 
     assert(0 <= ss->ply && ss->ply < MAX_PLY);
@@ -1495,7 +1465,7 @@ moves_loop: // When in check, search starts from here
     // Decide whether or not to include checks: this fixes also the type of
     // TT entry depth that we are going to use. Note that in qsearch we use
     // only two types of depth in TT: DEPTH_QS_CHECKS or DEPTH_QS_NO_CHECKS.
-    ttDepth = InCheck || depth >= DEPTH_QS_CHECKS ? DEPTH_QS_CHECKS
+    ttDepth = inCheck || depth >= DEPTH_QS_CHECKS ? DEPTH_QS_CHECKS
                                                   : DEPTH_QS_NO_CHECKS;
     // Transposition table lookup
     posKey = pos.key();
@@ -1517,7 +1487,7 @@ moves_loop: // When in check, search starts from here
     }
 
     // Evaluate the position statically
-    if (InCheck)
+    if (inCheck)
     {
         ss->staticEval = VALUE_NONE;
         bestValue = futilityBase = -VALUE_INFINITE;
@@ -1574,7 +1544,7 @@ moves_loop: // When in check, search starts from here
       moveCount++;
 
       // Futility pruning
-      if (   !InCheck
+      if (   !inCheck
           && !givesCheck
           &&  futilityBase > -VALUE_KNOWN_WIN
           && !pos.advanced_pawn_push(move))
@@ -1605,13 +1575,13 @@ moves_loop: // When in check, search starts from here
       }
 
       // Detect non-capture evasions that are candidates to be pruned
-      evasionPrunable =    InCheck
+      evasionPrunable =    inCheck
                        &&  (depth != DEPTH_ZERO || moveCount > 2)
                        &&  bestValue > VALUE_MATED_IN_MAX_PLY
                        && !pos.capture(move);
 
       // Don't search moves with negative SEE values
-      if (  (!InCheck || evasionPrunable)
+      if (  (!inCheck || evasionPrunable)
           && !pos.see_ge(move))
       {
           if (TRACE)
@@ -1634,9 +1604,7 @@ moves_loop: // When in check, search starts from here
 
       // Make and search the move
       pos.do_move(move, st, givesCheck);
-
-      value = givesCheck ? -trace.qsearch<NT, true, TRACE>(pos, ss+1, -beta, -alpha, depth - ONE_PLY)
-                         : -trace.qsearch<NT, false, TRACE>(pos, ss+1, -beta, -alpha, depth - ONE_PLY);
+      value = -trace.qsearch<NT, TRACE>(pos, ss+1, -beta, -alpha, depth - ONE_PLY);
       pos.undo_move(move);
 
       assert(value > -VALUE_INFINITE && value < VALUE_INFINITE);
@@ -1672,8 +1640,8 @@ moves_loop: // When in check, search starts from here
 
     // All legal moves have been searched. A special case: If we're in check
     // and no legal moves were found, it is checkmate.
-    if (InCheck && bestValue == -VALUE_INFINITE)
-        return mated_in(ss->ply); // Plies to mate from the roots
+    if (inCheck && bestValue == -VALUE_INFINITE)
+        return mated_in(ss->ply); // Plies to mate from the root
 
     tte->save(posKey, value_to_tt(bestValue, ss->ply),
               PvNode && bestValue > oldAlpha ? BOUND_EXACT : BOUND_UPPER,
@@ -1827,7 +1795,7 @@ void MainThread::check_time() {
       return;
 
   // When using nodes, ensure checking rate is not lower than 0.1% of nodes
-  callsCnt = Limits.nodes ? std::min(4096, int(Limits.nodes / 1024)) : 4096;
+  callsCnt = Limits.nodes ? std::min(1024, int(Limits.nodes / 1024)) : 1024;
 
   static TimePoint lastInfoTime = now();
 
