@@ -190,10 +190,10 @@ struct Trace {
 
     void init(const Position& pos, const Iterator begin, const Iterator end);
 
-    template <NodeType NT, bool TRACE = false>
+    template <NodeType NT, bool TRACE>
     inline Value search(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth, bool cutNode, bool skipEarlyPruning);
 
-    template <NodeType NT, bool TRACE = false>
+    template <NodeType NT, bool TRACE>
     inline Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta, Depth depth = DEPTH_ZERO);
 
     void on_call(const Point& point);
@@ -893,7 +893,7 @@ namespace {
         if (TRACE)
             trace.on_call("razoring");
 
-        Value v = trace.qsearch<NonPV>(pos, ss, ralpha, ralpha+1);
+        Value v = trace.qsearch<NonPV, TRACE>(pos, ss, ralpha, ralpha+1);
 
         if (depth < 2 * ONE_PLY || v <= ralpha)
         {
