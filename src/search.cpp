@@ -350,7 +350,7 @@ void Thread::search() {
               ct =  21;
 
               // Adjust contempt based on root move's previousScore (dynamic contempt)
-              ct += int(std::round(48 * atan(float(previousScore) / 128)));
+              ct += int(std::round(36 * atan(float(previousScore) / 128)));
 
               Eval::Contempt = (us == WHITE ?  Value(ct) : Value(-ct));
           }
