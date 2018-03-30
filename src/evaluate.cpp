@@ -28,8 +28,7 @@
 #include "evaluate.h"
 #include "material.h"
 #include "pawns.h"
-
-std::atomic<Score> Eval::Contempt;
+#include "thread.h"
 
 namespace Trace {
 
@@ -874,7 +873,7 @@ namespace {
             + space<  WHITE>() - space<  BLACK>();
 
     score += initiative(eg_value(score));
-    score += Eval::Contempt;
+    score += pos.this_thread()->contempt;
 
     // Interpolate between a middlegame and a (scaled by 'sf') endgame score
     ScaleFactor sf = scale_factor(eg_value(score));
@@ -916,7 +915,7 @@ std::string Eval::trace(const Position& pos) {
 
   std::memset(scores, 0, sizeof(scores));
 
-  Eval::Contempt = SCORE_ZERO; // Reset any dynamic contempt
+  pos.this_thread()->contempt = SCORE_ZERO; // Reset any dynamic contempt
 
   Value v = Evaluation<TRACE>(pos).value();
 
