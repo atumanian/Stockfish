@@ -358,7 +358,7 @@ void Thread::search() {
               alpha = std::max(previousScore - delta,-VALUE_INFINITE);
               beta  = std::min(previousScore + delta, VALUE_INFINITE);
 
-              if (previousScore <= 0)
+              if (previousScore >= 0)
               {
                   ct =  Options["Contempt"] * PawnValueEg / 100; // From centipawns
 
