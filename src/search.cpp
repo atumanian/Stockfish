@@ -288,6 +288,9 @@ void MainThread::search() {
 /// repeatedly with increasing depth until the allocated thinking time has been
 /// consumed, the user stops the search, or the maximum search depth is reached.
 
+int A = 0, B = 0, C = 0;
+TUNE(SetRange(-200, 200), A, B, C);
+
 void Thread::search() {
 
   Stack stack[MAX_PLY+7], *ss = stack+4; // To reference from (ss-4) to (ss+2)
@@ -318,7 +321,7 @@ void Thread::search() {
 
   multiPV = std::min(multiPV, rootMoves.size());
 
-  int ct = Options["Contempt"] * PawnValueEg / 100; // From centipawns
+  int ct = B;
   contempt = (us == WHITE ?  make_score(ct, ct / 2)
                           : -make_score(ct, ct / 2));
 
@@ -358,7 +361,7 @@ void Thread::search() {
               alpha = std::max(previousScore - delta,-VALUE_INFINITE);
               beta  = std::min(previousScore + delta, VALUE_INFINITE);
 
-              ct = (previousScore >= 0 ? Options["Contempt"] * PawnValueEg / 100 : 0);
+              ct = previousScore < 0 ? A : (previousScore == 0 ? B : C);
 
               contempt = (us == WHITE ?  make_score(ct, ct / 2)
                                       : -make_score(ct, ct / 2));
