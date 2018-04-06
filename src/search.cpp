@@ -318,7 +318,7 @@ void Thread::search() {
 
   multiPV = std::min(multiPV, rootMoves.size());
 
-  int ct = Options["Contempt"] * PawnValueEg / 100; // From centipawns
+  int ct = 30;
   contempt = (us == WHITE ?  make_score(ct, ct / 2)
                           : -make_score(ct, ct / 2));
 
@@ -358,7 +358,7 @@ void Thread::search() {
               alpha = std::max(previousScore - delta,-VALUE_INFINITE);
               beta  = std::min(previousScore + delta, VALUE_INFINITE);
 
-              ct = (previousScore >= 0 ? Options["Contempt"] * PawnValueEg / 100 : 0);
+              ct = previousScore < 0 ? -3 : (previousScore == 0 ? 30 : 53);
 
               contempt = (us == WHITE ?  make_score(ct, ct / 2)
                                       : -make_score(ct, ct / 2));
